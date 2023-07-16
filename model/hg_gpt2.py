@@ -5,8 +5,8 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, DataCollatorForLan
 
 def main():
     config = AutoConfig.from_pretrained('gpt2')
-    print(type(config), config)
-    return
+    # print(type(config), config)
+    # return
 
     tokenizer = AutoTokenizer.from_pretrained("gpt2")
     tokenizer.pad_token = tokenizer.eos_token
@@ -15,7 +15,13 @@ def main():
 
     obj = model.state_dict()
     for name in obj:
-        print(name, obj[name].shape)
+        print(name)
+
+    obj = model.named_parameters()
+    for params in obj:
+        print(params[0])
+    return
+
     model.eval()
 
     prompts = ["can i", "it's hot outside"]

@@ -41,7 +41,7 @@ class MultiHeadAttention(nn.Module):
         assert config.n_embd % config.n_head == 0
         dim = config.n_embd // config.n_head
         self.qkv_dim = 3 * dim
-        self.qkv_proj = [nn.Linear(config.n_embd, self.qkv_dim) for _ in range(config.n_head)]
+        self.qkv_proj = nn.Linear(config.n_embd, self.qkv_dim * config.n_head)
         self.out_proj = nn.Linear(config.n_embd, config.n_embd)
         self.config = config
 
@@ -52,17 +52,20 @@ class MultiHeadAttention(nn.Module):
         :return:
         """
 
-        all_head_qkv = [proj(hidden_states) for proj in self.qkv_proj]
+        all_head_qkv = self.qkv_proj(hidden_states)
         dim = self.qkv_dim // 3
 
         def get_q(idx: int, head: int):
-            return all_head_qkv[head][idx, :dim]
+            base = 3 * dim * head
+            return all_head_qkv[idx, base:base + dim]
 
         def get_k(idx: int, head: int):
-            return all_head_qkv[head][idx, dim:2 * dim]
+            base = 3 * dim * head
+            return all_head_qkv[idx, base + dim:base + 2 * dim]
 
         def get_v(idx: int, head: int):
-            return all_head_qkv[head][idx, 2 * dim:]
+            base = 3 * dim * head
+            return all_head_qkv[idx, base + 2 * dim:base + 3 * dim]
 
         seq_length = hidden_states.shape[0]
         scale = math.sqrt(self.config.n_embd)
@@ -88,11 +91,11 @@ class Block(nn.Module):
     def __init__(self, config: Gpt2Config, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.mlp = Mlp(config)
+        self.ln1 = nn.LayerNorm(normalized_shape=config.n_embd, eps=config.layer_norm_epsilon)
         self.mha = MultiHeadAttention(config)
 
-        self.ln1 = nn.LayerNorm(normalized_shape=config.n_embd, eps=config.layer_norm_epsilon)
         self.ln2 = nn.LayerNorm(normalized_shape=config.n_embd, eps=config.layer_norm_epsilon)
+        self.mlp = Mlp(config)
 
     def forward(self, hidden_states: torch.Tensor):
         """
@@ -102,8 +105,8 @@ class Block(nn.Module):
         """
         x = hidden_states
         for f, g in zip([self.mha, self.mlp], [self.ln1, self.ln2]):
-            fx = f(x)
-            x = g(x + fx)
+            fx = f(g(x))
+            x = x + fx
         return x
 
 
@@ -113,8 +116,8 @@ class Model(nn.Module):
         self.config = config
         self.word_embedding_table = nn.Embedding(config.vocab_size, config.n_embd)
         self.position_embedding_table = nn.Embedding(config.n_positions, config.n_embd)
-
-        self.layers = [Block(config) for _ in range(config.n_layer)]
+        self.layers = nn.ModuleList([Block(config) for _ in range(config.n_layer)])
+        self.ln = nn.LayerNorm(config.n_embd, eps=config.layer_norm_epsilon)
 
     def forward(self, input_ids: torch.LongTensor):
         """
@@ -133,7 +136,10 @@ class Model(nn.Module):
         for layer in self.layers:
             hidden_states = layer(hidden_states)
 
-        return hidden_states
+        return self.ln(hidden_states)
+
+    def load_weights_from_hf(self):
+        pass
 
 
 def main():
@@ -159,6 +165,8 @@ def main():
     model = Model(config)
     output = model(input_ids)
     print(output.shape)
+    for params in model.state_dict():
+        print(params)
 
 
 if __name__ == '__main__':
