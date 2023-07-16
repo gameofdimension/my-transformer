@@ -1,15 +1,21 @@
 import torch
+from torch import nn
 from transformers import AutoTokenizer, AutoModelForCausalLM, DataCollatorForLanguageModeling, AutoConfig
 
 
 def main():
     config = AutoConfig.from_pretrained('gpt2')
-    print(config)
+    print(type(config), config)
+    return
 
     tokenizer = AutoTokenizer.from_pretrained("gpt2")
     tokenizer.pad_token = tokenizer.eos_token
 
     model = AutoModelForCausalLM.from_pretrained("gpt2")
+
+    obj = model.state_dict()
+    for name in obj:
+        print(name, obj[name].shape)
     model.eval()
 
     prompts = ["can i", "it's hot outside"]
@@ -29,5 +35,13 @@ def main():
     print(tokenizer.decode(output_ids[1]))
 
 
+def exp_embedding():
+    embedding = nn.Embedding(10, 3)
+    print(embedding.weight[1])
+    v1 = embedding(torch.LongTensor([1, 2, 3]))
+    print(v1)
+
+
 if __name__ == '__main__':
     main()
+    # test_embedding()
