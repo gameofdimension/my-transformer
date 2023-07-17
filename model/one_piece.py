@@ -5,6 +5,7 @@ from typing import List
 import torch
 from torch import nn
 from torch.nn.functional import softmax
+from transformers import AutoModelForCausalLM
 from transformers.activations import get_activation
 
 from model.config import Gpt2Config
@@ -110,6 +111,48 @@ class Block(nn.Module):
         return x
 
 
+def name_mapping(param: str):
+    out = {
+        "word_embedding_table.weight": "transformer.wte.weight",
+        "position_embedding_table.weight": "transformer.wpe.weight",
+        "ln.weight": "transformer.ln_f.weight",
+        "ln.bias": "transformer.ln_f.bias",
+    }
+    if param in out:
+        return out[param]
+
+    li = param.split('.')[1]
+    prefix = f"transformer.h.{li}."
+    if "ln1.weight" in param:
+        postfix = "ln_1.weight"
+    elif "ln1.bias" in param:
+        postfix = "ln_1.bias"
+    elif "mha.qkv_proj.weight" in param:
+        postfix = "attn.c_attn.weight"
+    elif "mha.qkv_proj.bias" in param:
+        postfix = "attn.c_attn.bias"
+    elif "mha.out_proj.weight" in param:
+        postfix = "attn.c_proj.weight"
+    elif "mha.out_proj.bias" in param:
+        postfix = "attn.c_proj.bias"
+    elif "ln2.weight" in param:
+        postfix = "ln_2.weight"
+    elif "ln2.bias" in param:
+        postfix = "ln_2.bias"
+    elif "mlp.up_proj.weight" in param:
+        postfix = "mlp.c_fc.weight"
+    elif "mlp.up_proj.bias" in param:
+        postfix = "mlp.c_fc.bias"
+    elif "down_proj.weight" in param:
+        postfix = "mlp.c_proj.weight"
+    elif "down_proj.bias" in param:
+        postfix = "mlp.c_proj.bias"
+    else:
+        assert False
+
+    return prefix + postfix
+
+
 class Model(nn.Module):
     def __init__(self, config: Gpt2Config, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -128,8 +171,8 @@ class Model(nn.Module):
         assert len(input_ids.shape) == 1
         position_ids = torch.LongTensor([range(input_ids.shape[0])])
 
-        word_embeddings = self.word_embedding_table(input_ids).squeeze()
-        position_embeddings = self.position_embedding_table(position_ids).squeeze()
+        word_embeddings = self.word_embedding_table(input_ids)[0]
+        position_embeddings = self.position_embedding_table(position_ids)[0]
 
         hidden_states = word_embeddings + position_embeddings
 
@@ -139,7 +182,20 @@ class Model(nn.Module):
         return self.ln(hidden_states)
 
     def load_weights_from_hf(self):
-        pass
+        model_id = 'gpt2'
+        ref_model = AutoModelForCausalLM.from_pretrained(model_id)
+
+        state_dict = self.state_dict()
+        ref_state_dict = ref_model.state_dict()
+        for tup in self.named_parameters():
+            name = tup[0]
+            param = state_dict[name]
+            ref_name = name_mapping(name)
+            ref_param = ref_state_dict[ref_name]
+            if "weight" in name and ('.mlp.' in name or '.mha.' in name):
+                param.data.copy_(ref_param.transpose(0, 1))
+            else:
+                param.data.copy_(ref_param)
 
 
 def main():
@@ -163,10 +219,13 @@ def main():
 
     input_ids = torch.LongTensor([7, 5, 6, 1, 8, 9])
     model = Model(config)
+
+    model.load_weights_from_hf()
+
     output = model(input_ids)
     print(output.shape)
-    for params in model.state_dict():
-        print(params)
+    # for params in model.named_parameters():
+    #     print(params[0])
 
 
 if __name__ == '__main__':

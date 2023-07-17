@@ -2,8 +2,10 @@ import unittest
 
 import numpy as np
 import torch
+from transformers import AutoModelForCausalLM
 
-from model.one_piece import weighted_sum
+from model.config import Gpt2Config
+from model.one_piece import weighted_sum, Model
 
 
 class ModelTest(unittest.TestCase):
@@ -36,3 +38,19 @@ class ModelTest(unittest.TestCase):
         self.assertEqual(val.shape, my_val.shape)
         for i in range(val.shape[0]):
             self.assertAlmostEqual(val[i].item(), my_val[i].item(), delta=1e-6)
+
+    def test_load_weight(self):
+        ref_model = AutoModelForCausalLM.from_pretrained("gpt2")
+
+        config = Gpt2Config()
+        model = Model(config)
+        model.load_weights_from_hf()
+
+        out1 = ref_model(torch.LongTensor([42]))
+
+        # out2 = model(torch.LongTensor([42, 1]))
+        out2 = model(torch.LongTensor([42]))
+        print(out1.logits.argmax())
+        print(out2.argmax())
+
+        self.assertTrue(True)

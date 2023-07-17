@@ -12,17 +12,26 @@ def main():
     tokenizer.pad_token = tokenizer.eos_token
 
     model = AutoModelForCausalLM.from_pretrained("gpt2")
+    model.eval()
 
     obj = model.state_dict()
     for name in obj:
-        print(name)
+        print(name, obj[name])
+        break
+
+    # obj = model.named_parameters()
+    # for params in obj:
+    #     print(params[0])
+    #     print(params[1])
+    #     break
+
+    model(torch.LongTensor([1]))
 
     obj = model.named_parameters()
     for params in obj:
-        print(params[0])
+        print(params[0], params[1].shape)
+        # break
     return
-
-    model.eval()
 
     prompts = ["can i", "it's hot outside"]
     tks = tokenizer(prompts)
