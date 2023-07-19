@@ -57,17 +57,14 @@ class MultiHeadAttention(nn.Module):
         step = all_head_qkv.size(dim=-1) // 3
 
         def get_q(idx: int, head: int):
-            # base = 3 * dim * head
             base = step * 0
             return all_head_qkv[idx, base + head * dim:base + (head + 1) * dim]
 
         def get_k(idx: int, head: int):
             base = step * 1
-            # base = 3 * dim * head
             return all_head_qkv[idx, base + head * dim:base + (head + 1) * dim]
 
         def get_v(idx: int, head: int):
-            # base = 3 * dim * head
             base = step * 2
             return all_head_qkv[idx, base + head * dim:base + (head + 1) * dim]
 
