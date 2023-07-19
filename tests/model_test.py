@@ -46,11 +46,15 @@ class ModelTest(unittest.TestCase):
         model = Model(config)
         model.load_weights_from_hf()
 
-        out1 = ref_model(torch.LongTensor([42]))
+        out1 = ref_model(torch.LongTensor([42, 2]), output_hidden_states=True)
 
         # out2 = model(torch.LongTensor([42, 1]))
-        out2 = model(torch.LongTensor([42]))
-        print(out1.logits.argmax())
-        print(out2.argmax())
+        out2, lo = model(torch.LongTensor([42, 2]))
+        for i in range(12):
+            # print(out1.hidden_states[i][0, 0, :5])
+            # print(lo[i][0, :5])
+
+            print(out1.hidden_states[i][0, 1, :5])
+            print(lo[i][1, :5])
 
         self.assertTrue(True)

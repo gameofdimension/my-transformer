@@ -1,4 +1,3 @@
-import math
 from dataclasses import asdict
 from typing import List
 
@@ -55,21 +54,25 @@ class MultiHeadAttention(nn.Module):
 
         all_head_qkv = self.qkv_proj(hidden_states)
         dim = self.qkv_dim // 3
+        step = all_head_qkv.size(dim=-1) // 3
 
         def get_q(idx: int, head: int):
-            base = 3 * dim * head
-            return all_head_qkv[idx, base:base + dim]
+            # base = 3 * dim * head
+            base = step * 0
+            return all_head_qkv[idx, base + head * dim:base + (head + 1) * dim]
 
         def get_k(idx: int, head: int):
-            base = 3 * dim * head
-            return all_head_qkv[idx, base + dim:base + 2 * dim]
+            base = step * 1
+            # base = 3 * dim * head
+            return all_head_qkv[idx, base + head * dim:base + (head + 1) * dim]
 
         def get_v(idx: int, head: int):
-            base = 3 * dim * head
-            return all_head_qkv[idx, base + 2 * dim:base + 3 * dim]
+            # base = 3 * dim * head
+            base = step * 2
+            return all_head_qkv[idx, base + head * dim:base + (head + 1) * dim]
 
         seq_length = hidden_states.shape[0]
-        scale = math.sqrt(self.config.n_embd)
+        scale = dim ** 0.5
         output = []
         for tk in range(seq_length):
             final_value = []
@@ -106,7 +109,8 @@ class Block(nn.Module):
         """
         x = hidden_states
         for f, g in zip([self.mha, self.mlp], [self.ln1, self.ln2]):
-            fx = f(g(x))
+            gx = g(x)
+            fx = f(gx)
             x = x + fx
         return x
 
@@ -175,11 +179,13 @@ class Model(nn.Module):
         position_embeddings = self.position_embedding_table(position_ids)[0]
 
         hidden_states = word_embeddings + position_embeddings
+        layers_output = [hidden_states.detach()]
 
         for layer in self.layers:
             hidden_states = layer(hidden_states)
+            layers_output.append(hidden_states.detach())
 
-        return self.ln(hidden_states)
+        return self.ln(hidden_states), layers_output
 
     def load_weights_from_hf(self):
         model_id = 'gpt2'

@@ -13,6 +13,12 @@ def main():
 
     model = AutoModelForCausalLM.from_pretrained("gpt2")
     model.eval()
+    print(model)
+
+    model = AutoModelForCausalLM.from_pretrained("gpt2", load_in_8bit=True, torch_dtype=torch.float16,
+                                                 device_map="auto")
+    print(model)
+    return
 
     obj = model.state_dict()
     for name in obj:
@@ -31,7 +37,6 @@ def main():
     for params in obj:
         print(params[0], params[1].shape)
         # break
-    return
 
     prompts = ["can i", "it's hot outside"]
     tks = tokenizer(prompts)
