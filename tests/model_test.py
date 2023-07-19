@@ -39,22 +39,19 @@ class ModelTest(unittest.TestCase):
         for i in range(val.shape[0]):
             self.assertAlmostEqual(val[i].item(), my_val[i].item(), delta=1e-6)
 
-    def test_load_weight(self):
+    def test_modeling(self):
         ref_model = AutoModelForCausalLM.from_pretrained("gpt2")
 
         config = Gpt2Config()
         model = Model(config)
         model.load_weights_from_hf()
 
-        out1 = ref_model(torch.LongTensor([42, 2]), output_hidden_states=True)
+        out1 = ref_model(torch.LongTensor([42]), output_hidden_states=True)
+        out2, layer_output = model(torch.LongTensor([42]))
 
-        # out2 = model(torch.LongTensor([42, 1]))
-        out2, lo = model(torch.LongTensor([42, 2]))
-        for i in range(12):
-            # print(out1.hidden_states[i][0, 0, :5])
-            # print(lo[i][0, :5])
-
-            print(out1.hidden_states[i][0, 1, :5])
-            print(lo[i][1, :5])
-
-        self.assertTrue(True)
+        for i in range(config.n_layer):
+            t1 = out1.hidden_states[i][0]
+            t2 = layer_output[i]
+            self.assertTrue(
+                torch.abs(torch.max(t2 - t1)) < 1e-3,
+                f"fail at layer {i}, delta {torch.abs(torch.max(t2 - t1))}")

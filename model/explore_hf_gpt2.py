@@ -64,4 +64,4 @@ def exp_embedding():
 
 if __name__ == '__main__':
     main()
-    # test_embedding()
+    # exp_embedding()

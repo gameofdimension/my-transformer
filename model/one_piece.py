@@ -1,4 +1,3 @@
-from dataclasses import asdict
 from typing import List
 
 import torch
@@ -30,7 +29,8 @@ class Mlp(nn.Module):
 
 def weighted_sum(scores: List[torch.Tensor], values: List[torch.Tensor]) -> torch.Tensor:
     v = torch.stack(values)
-    probs = softmax(torch.Tensor(scores), dim=-1)
+    scores = torch.Tensor(scores)
+    probs = softmax(scores, dim=-1)
     return probs @ v
 
 
@@ -173,10 +173,10 @@ class Model(nn.Module):
         :return:
         """
         assert len(input_ids.shape) == 1
-        position_ids = torch.LongTensor([range(input_ids.shape[0])])
+        position_ids = torch.LongTensor(range(input_ids.shape[0]))
 
-        word_embeddings = self.word_embedding_table(input_ids)[0]
-        position_embeddings = self.position_embedding_table(position_ids)[0]
+        word_embeddings = self.word_embedding_table(input_ids)
+        position_embeddings = self.position_embedding_table(position_ids)
 
         hidden_states = word_embeddings + position_embeddings
         layers_output = [hidden_states.detach()]
@@ -202,37 +202,3 @@ class Model(nn.Module):
                 param.data.copy_(ref_param.transpose(0, 1))
             else:
                 param.data.copy_(ref_param)
-
-
-def main():
-    # config = AutoConfig.from_pretrained('gpt2')
-    # m = Model(config)
-
-    # print(m(torch.LongTensor([3, 4, 5, 2])))
-
-    # ln = nn.LayerNorm(normalized_shape=5)
-    # x1 = torch.Tensor([1, 5, 2, 4, 3])
-    # print(ln(x1))
-
-    # input = torch.normal(0, 1, (5, config.n_embd))
-    # mlp = Mlp(config)
-    # print(mlp(input).shape)
-    # attn = MultiHeadAttention(config)
-    # print(attn(input))
-
-    config = Gpt2Config()
-    print(config, asdict(config))
-
-    input_ids = torch.LongTensor([7, 5, 6, 1, 8, 9])
-    model = Model(config)
-
-    model.load_weights_from_hf()
-
-    output = model(input_ids)
-    print(output.shape)
-    # for params in model.named_parameters():
-    #     print(params[0])
-
-
-if __name__ == '__main__':
-    main()
