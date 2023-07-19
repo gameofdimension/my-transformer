@@ -208,7 +208,7 @@ class Model(nn.Module):
 
 def count_params():
     """
-    设层数为 L，隐层大小为 H，注意力头数为 T，Q,K,V 的维数为 D。词表大小 V，最大支持序列长度 S
+    设层数为 L，隐层大小为 H，注意力头数为 T，Q,K,V 的维数为 D。词表大小 C，最大支持序列长度 S
     1. 每层有两个 layer normalization 层，隐层的每个成员对应 2 个参数，所以这部分参数有 2*2H
     2. 每层的 MLP 首先将 H 升为 4H，然后将 4H 降为 H，加上各自的 bias 共有参数 H*4H+4H+4H*H+H
     3.1 多头注意力部分，因为需要提供 T 个注意力头的 Q,K,V 所以，输出维度为 3D*T
@@ -219,17 +219,17 @@ def count_params():
     5.1 除各层参数之外还有词表 embedding 查询表，参数两位 V*H
     5.2 位置 embedding 查询表 S*H
     5.3 最后的输出还会被 layer normalize ，对应参数 2H
-    6. 总参数量为 (12*H^2+13*H)*L+V*H+S*H+2*H。
-    7. huggingface gpt2 模型的 L 为 12，H 为 768，D 为 64，V 为 50257，S 为 1024
+    6. 总参数量为 (12*H^2+13*H)*L+C*H+S*H+2*H。
+    7. huggingface gpt2 模型的 L 为 12，H 为 768，D 为 64，C 为 50257，S 为 1024
     :return:
     """
     L = 12
     H = 768
-    V = 50257
+    C = 50257
     S = 1024
 
     num_per_layer = 12 * H ** 2 + 13 * H
-    num = num_per_layer * L + V * H + S * H + 2 * H
+    num = num_per_layer * L + C * H + S * H + 2 * H
     print(num_per_layer, num)
 
     def query_model_params(m):
