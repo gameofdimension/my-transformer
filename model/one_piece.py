@@ -216,7 +216,7 @@ def count_params():
     3.3 这部分的参数数为 H*(3D*T)+3D*T ，也就是 H*3H+3H
     3.4 多头注意层还有个全连接层参数量为 H*H+H
     4. 综上每层的参数为 12*H^2+9*H
-    5.1 除各层参数之外还有词表 embedding 查询表，参数两位 V*H
+    5.1 除各层参数之外还有词表 embedding 查询表，参数两位 C*H
     5.2 位置 embedding 查询表 S*H
     5.3 最后的输出还会被 layer normalize ，对应参数 2H
     6. 总参数量为 (12*H^2+13*H)*L+C*H+S*H+2*H。
