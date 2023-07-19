@@ -49,9 +49,11 @@ class ModelTest(unittest.TestCase):
         out1 = ref_model(torch.LongTensor([42]), output_hidden_states=True)
         out2, layer_output = model(torch.LongTensor([42]))
 
+        delta = torch.abs(torch.max(out1.hidden_states[-1] - out2))
+        self.assertTrue(delta < 1e-3, f"fail at final output, delta {delta}")
+
         for i in range(config.n_layer):
             t1 = out1.hidden_states[i][0]
             t2 = layer_output[i]
-            self.assertTrue(
-                torch.abs(torch.max(t2 - t1)) < 1e-3,
-                f"fail at layer {i}, delta {torch.abs(torch.max(t2 - t1))}")
+            delta = torch.abs(torch.max(t2 - t1))
+            self.assertTrue(delta < 1e-3, f"fail at layer {i}, delta {delta}")

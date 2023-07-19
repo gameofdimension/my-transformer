@@ -168,7 +168,8 @@ class Model(nn.Module):
 
     def forward(self, input_ids: torch.LongTensor):
         """
-
+        单序列玩具版 gpt2，纯手搓
+        不支持 batch 输入
         :param input_ids: [seq_length]
         :return:
         """
@@ -188,6 +189,10 @@ class Model(nn.Module):
         return self.ln(hidden_states), layers_output
 
     def load_weights_from_hf(self):
+        """
+        因为是复刻 huggingface gpt2，所以可以直接加载其模型权重
+        :return:
+        """
         model_id = 'gpt2'
         ref_model = AutoModelForCausalLM.from_pretrained(model_id)
 
