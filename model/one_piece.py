@@ -204,3 +204,47 @@ class Model(nn.Module):
                 param.data.copy_(ref_param.transpose(0, 1))
             else:
                 param.data.copy_(ref_param)
+
+
+def count_params():
+    """
+    设层数为 L，隐层大小为 H，注意力头数为 T，Q,K,V 的维数为 D。词表大小 V，最大支持序列长度 S
+    1. 每层有两个 layer normalization 层，隐层的每个成员对应 2 个参数，所以这部分参数有 2*2H
+    2. 每层的 MLP 首先将 H 升为 4H，然后将 4H 降为 H，加上各自的 bias 共有参数 H*4H+4H+4H*H+H
+    3.1 多头注意力部分，因为需要提供 T 个注意力头的 Q,K,V 所以，输出维度为 3D*T
+    3.2 每个头的输出是其他头的 V 的加权和，所以维度也为 D，同时所有这样的输出拼起来维度需为 H，说明 TD = H
+    3.3 这部分的参数数为 H*(3D*T)+3D*T ，也就是 H*3H+3H
+    3.4 多头注意层还有个全连接层参数量为 H*H+H
+    4. 综上每层的参数为 12*H^2+9*H
+    5.1 除各层参数之外还有词表 embedding 查询表，参数两位 V*H
+    5.2 位置 embedding 查询表 S*H
+    5.3 最后的输出还会被 layer normalize ，对应参数 2H
+    6. 总参数量为 (12*H^2+13*H)*L+V*H+S*H+2*H。
+    7. huggingface gpt2 模型的 L 为 12，H 为 768，D 为 64，V 为 50257，S 为 1024
+    :return:
+    """
+    L = 12
+    H = 768
+    V = 50257
+    S = 1024
+
+    num_per_layer = 12 * H ** 2 + 13 * H
+    num = num_per_layer * L + V * H + S * H + 2 * H
+    print(num_per_layer, num)
+
+    def query_model_params(m):
+        total = 0
+        for n, p in m.named_parameters():
+            total += p.numel()
+        return total
+
+    config = Gpt2Config()
+    my = Model(config)
+    assert num == query_model_params(my)
+
+    gold = AutoModelForCausalLM.from_pretrained("gpt2")
+    assert num == query_model_params(gold)
+
+
+if __name__ == '__main__':
+    count_params()
