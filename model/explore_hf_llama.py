@@ -3,12 +3,21 @@ from transformers import AutoConfig, AutoModelForCausalLM
 
 import torch
 
+from model.llama import Model
+from model.llama_config import LlamaConfig
+
 
 def main():
     config = AutoConfig.from_pretrained('meta-llama/Llama-2-7b-hf', trust_remote_code=True)
     print(config)
-    config.num_hidden_layers = 4
+    config.num_hidden_layers = 2
     model = LlamaForCausalLM(config)
+    for params in model.named_parameters():
+        print(params[0], params[1].size())
+
+
+def inspect_my():
+    model = Model(LlamaConfig())
     for params in model.named_parameters():
         print(params[0], params[1].size())
 
@@ -23,4 +32,5 @@ def slim():
 
 
 if __name__ == '__main__':
-    slim()
+    inspect_my()
+    main()
