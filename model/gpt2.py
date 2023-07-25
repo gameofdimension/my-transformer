@@ -6,7 +6,7 @@ from torch.nn.functional import softmax
 from transformers import AutoModelForCausalLM
 from transformers.activations import get_activation
 
-from model.config import Gpt2Config
+from model.gpt2_config import Gpt2Config
 
 
 class Mlp(nn.Module):

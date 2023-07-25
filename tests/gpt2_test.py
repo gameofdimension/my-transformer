@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from transformers import AutoModelForCausalLM
 
-from model.config import Gpt2Config
+from model.gpt2_config import Gpt2Config
 from model.gpt2 import weighted_sum, Model
 
 
