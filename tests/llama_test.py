@@ -3,7 +3,7 @@ import unittest
 import torch
 from transformers import AutoModelForCausalLM
 
-from model.llama import RMSNorm, Model
+from model.llama import RMSNorm, Model, Rotary
 from transformers.models.llama.modeling_llama import LlamaRMSNorm
 
 from model.llama_config import LlamaConfig
@@ -32,7 +32,7 @@ class ModelTest(unittest.TestCase):
         out1 = ref_model(torch.LongTensor([[42, 2]]), output_hidden_states=True)
         out2, layer_output = model(torch.LongTensor([42, 2]))
 
-        delta = torch.abs(torch.max(out1.hidden_states[-1] - out2))
+        delta = torch.abs(torch.max(out1.hidden_states[-1][0] - out2))
         self.assertTrue(delta < 1e-3, f"fail at final output, delta {delta}")
 
         for i in range(config.num_hidden_layers):

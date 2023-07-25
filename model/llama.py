@@ -33,11 +33,11 @@ class Rotary:
             matrix = torch.zeros(size=(self.d, self.d))
 
             for j in range(self.d // 2):
-                theta = base ** (-2 * (j - 1) / self.d)
+                theta = base ** (-2 * j / self.d)
                 matrix[2 * j, 2 * j] = math.cos(m * theta)
                 matrix[2 * j, 2 * j + 1] = -math.sin(m * theta)
                 matrix[2 * j + 1, 2 * j + 1] = math.cos(m * theta)
-                matrix[2 * j + 1, 2 * j - 1] = math.sin(m * theta)
+                matrix[2 * j + 1, 2 * j] = math.sin(m * theta)
             assert m == len(self.matrix_lst) + 1
             self.matrix_lst.append(matrix)
 
