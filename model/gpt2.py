@@ -1,11 +1,9 @@
-from typing import List
-
 import torch
 from torch import nn
-from torch.nn.functional import softmax
 from transformers import AutoModelForCausalLM
 from transformers.activations import get_activation
 
+from model.common import attention_func
 from model.gpt2_config import Gpt2Config
 
 
@@ -25,13 +23,6 @@ class Mlp(nn.Module):
         """
         x = hidden_states
         return self.down_proj(self.action_fn(self.up_proj(x)))
-
-
-def weighted_sum(scores: List[torch.Tensor], values: List[torch.Tensor]) -> torch.Tensor:
-    v = torch.stack(values)
-    scores = torch.Tensor(scores)
-    probs = softmax(scores, dim=-1)
-    return probs @ v
 
 
 class MultiHeadAttention(nn.Module):
@@ -69,22 +60,9 @@ class MultiHeadAttention(nn.Module):
             return all_head_qkv[idx, base + head * dim:base + (head + 1) * dim]
 
         seq_length = hidden_states.shape[0]
-        scale = dim ** 0.5
-        output = []
-        for tk in range(seq_length):
-            final_value = []
-            for h in range(self.config.n_head):
-                q = get_q(tk, h)
-                s = []
-                v = []
-                for p in range(1 + tk):
-                    s.append(torch.dot(q, get_k(p, h)) / scale)
-                    v.append(get_v(p, h))
-                final_value.append(weighted_sum(s, v))
-            final_value = torch.stack(final_value).view(1, -1).squeeze()
-            assert final_value.shape[0] == self.config.n_embd
-            output.append(final_value)
-        output = torch.stack(output)
+        output = attention_func(
+            seq_length=seq_length, num_attention_heads=self.config.n_head,
+            hidden_size=self.config.n_embd, get_q=get_q, get_k=get_k, get_v=get_v)
         return self.out_proj(output)
 
 

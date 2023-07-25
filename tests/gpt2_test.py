@@ -4,8 +4,9 @@ import numpy as np
 import torch
 from transformers import AutoModelForCausalLM
 
+from model.common import weighted_sum
+from model.gpt2 import Model
 from model.gpt2_config import Gpt2Config
-from model.gpt2 import weighted_sum, Model
 
 
 class ModelTest(unittest.TestCase):
