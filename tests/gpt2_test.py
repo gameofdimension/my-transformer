@@ -41,11 +41,12 @@ class ModelTest(unittest.TestCase):
             self.assertAlmostEqual(val[i].item(), my_val[i].item(), delta=1e-6)
 
     def test_modeling(self):
-        ref_model = AutoModelForCausalLM.from_pretrained("gpt2")
+        ref_model_id = "gpt2"
+        ref_model = AutoModelForCausalLM.from_pretrained(ref_model_id)
 
         config = Gpt2Config()
         model = Model(config)
-        model.load_weights_from_hf()
+        model.load_weights_from_hf(ref_model_id)
 
         out1 = ref_model(torch.LongTensor([42]), output_hidden_states=True)
         out2, layer_output = model(torch.LongTensor([42]))

@@ -17,7 +17,7 @@ def main():
 
 
 def inspect_my():
-    model = Model(LlamaConfig())
+    model = Model(LlamaConfig(num_hidden_layers=2))
     for params in model.named_parameters():
         print(params[0], params[1].size())
 

@@ -2,6 +2,7 @@ import math
 
 import torch
 from torch import nn
+from transformers import AutoModelForCausalLM
 from transformers.activations import get_activation
 
 from model.common import attention_func
@@ -125,6 +126,86 @@ class Block(nn.Module):
         return x
 
 
+"""
+word_embedding_table.weight torch.Size([32000, 4096])
+layers.0.rn1.weight torch.Size([4096])
+layers.0.mha.q_proj.weight torch.Size([4096, 4096])
+layers.0.mha.k_proj.weight torch.Size([4096, 4096])
+layers.0.mha.v_proj.weight torch.Size([4096, 4096])
+layers.0.mha.o_proj.weight torch.Size([4096, 4096])
+layers.0.rn2.weight torch.Size([4096])
+layers.0.mlp.gate_proj.weight torch.Size([11008, 4096])
+layers.0.mlp.up_proj.weight torch.Size([11008, 4096])
+layers.0.mlp.down_proj.weight torch.Size([4096, 11008])
+layers.1.rn1.weight torch.Size([4096])
+layers.1.mha.q_proj.weight torch.Size([4096, 4096])
+layers.1.mha.k_proj.weight torch.Size([4096, 4096])
+layers.1.mha.v_proj.weight torch.Size([4096, 4096])
+layers.1.mha.o_proj.weight torch.Size([4096, 4096])
+layers.1.rn2.weight torch.Size([4096])
+layers.1.mlp.gate_proj.weight torch.Size([11008, 4096])
+layers.1.mlp.up_proj.weight torch.Size([11008, 4096])
+layers.1.mlp.down_proj.weight torch.Size([4096, 11008])
+rms.weight torch.Size([4096])
+
+model.embed_tokens.weight torch.Size([32000, 4096])
+model.layers.0.self_attn.q_proj.weight torch.Size([4096, 4096])
+model.layers.0.self_attn.k_proj.weight torch.Size([4096, 4096])
+model.layers.0.self_attn.v_proj.weight torch.Size([4096, 4096])
+model.layers.0.self_attn.o_proj.weight torch.Size([4096, 4096])
+model.layers.0.mlp.gate_proj.weight torch.Size([11008, 4096])
+model.layers.0.mlp.down_proj.weight torch.Size([4096, 11008])
+model.layers.0.mlp.up_proj.weight torch.Size([11008, 4096])
+model.layers.0.input_layernorm.weight torch.Size([4096])
+model.layers.0.post_attention_layernorm.weight torch.Size([4096])
+model.layers.1.self_attn.q_proj.weight torch.Size([4096, 4096])
+model.layers.1.self_attn.k_proj.weight torch.Size([4096, 4096])
+model.layers.1.self_attn.v_proj.weight torch.Size([4096, 4096])
+model.layers.1.self_attn.o_proj.weight torch.Size([4096, 4096])
+model.layers.1.mlp.gate_proj.weight torch.Size([11008, 4096])
+model.layers.1.mlp.down_proj.weight torch.Size([4096, 11008])
+model.layers.1.mlp.up_proj.weight torch.Size([11008, 4096])
+model.layers.1.input_layernorm.weight torch.Size([4096])
+model.layers.1.post_attention_layernorm.weight torch.Size([4096])
+model.norm.weight torch.Size([4096])
+lm_head.weight torch.Size([32000, 4096])
+"""
+
+
+def name_mapping(param: str):
+    out = {
+        "word_embedding_table.weight": "model.embed_tokens.weight",
+        "rms.weight": "model.norm.weight",
+    }
+    if param in out:
+        return out[param]
+
+    li = param.split('.')[1]
+    prefix = f"model.layers.{li}."
+    if "rn1.weight" in param:
+        postfix = "input_layernorm.weight"
+    elif "mha.q_proj.weight" in param:
+        postfix = "self_attn.q_proj.weight"
+    elif "mha.k_proj.weight" in param:
+        postfix = "self_attn.k_proj.weight"
+    elif "mha.v_proj.weight" in param:
+        postfix = "self_attn.v_proj.weight"
+    elif "mha.o_proj.weight" in param:
+        postfix = "self_attn.o_proj.weight"
+    elif "rn2.weight" in param:
+        postfix = "post_attention_layernorm.weight"
+    elif "mlp.gate_proj.weight" in param:
+        postfix = "mlp.gate_proj.weight"
+    elif "mlp.up_proj.weight" in param:
+        postfix = "mlp.up_proj.weight"
+    elif "mlp.down_proj.weight" in param:
+        postfix = "mlp.down_proj.weight"
+    else:
+        assert False
+
+    return prefix + postfix
+
+
 class Model(nn.Module):
     def __init__(self, config: LlamaConfig):
         super().__init__()
@@ -139,12 +220,32 @@ class Model(nn.Module):
             hidden_state = layer(hidden_state)
         return self.rms(hidden_state)
 
+    def load_weights_from_hf(self, model_id):
+        """
+        因为是复刻 huggingface gpt2，所以可以直接加载其模型权重
+        :return:
+        """
+        # model_id = 'felixdae/Llama-2-7b-hf'
+        ref_model = AutoModelForCausalLM.from_pretrained(model_id)
 
-if __name__ == '__main__':
-    r = Rotary(10)
-    print(r.apply(3, torch.normal(mean=0, std=1, size=(10,))))
+        state_dict = self.state_dict()
+        ref_state_dict = ref_model.state_dict()
+        for tup in self.named_parameters():
+            name = tup[0]
+            param = state_dict[name]
+            ref_name = name_mapping(name)
+            ref_param = ref_state_dict[ref_name]
+            if "weight" in name and ('.mlp.' in name or '.mha.' in name):
+                param.data.copy_(ref_param.transpose(0, 1))
+            else:
+                param.data.copy_(ref_param)
 
-    model = Model(LlamaConfig())
-    print(model)
-    out = model(torch.LongTensor([42]))
-    print(out.size(), out)
+
+# if __name__ == '__main__':
+#     r = Rotary(10)
+#     print(r.apply(3, torch.normal(mean=0, std=1, size=(10,))))
+#
+#     model = Model(LlamaConfig(num_hidden_layers=2))
+#     print(model)
+#     out = model(torch.LongTensor([42]))
+#     print(out.size(), out)

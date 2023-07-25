@@ -1,9 +1,12 @@
 import unittest
 
 import torch
+from transformers import AutoModelForCausalLM
 
-from model.llama import RMSNorm
+from model.llama import RMSNorm, Model
 from transformers.models.llama.modeling_llama import LlamaRMSNorm
+
+from model.llama_config import LlamaConfig
 
 
 class ModelTest(unittest.TestCase):
@@ -17,3 +20,23 @@ class ModelTest(unittest.TestCase):
         gold = llnorm(h)
 
         self.assertTrue(torch.max(torch.abs(out - gold)) < 1e-3)
+
+    def test_modeling(self):
+        ref_model_id = "felixdae/Llama-2-7b-hf"
+        ref_model = AutoModelForCausalLM.from_pretrained(ref_model_id)
+
+        config = LlamaConfig(num_hidden_layers=2)
+        model = Model(config)
+        model.load_weights_from_hf(ref_model_id)
+
+        out1 = ref_model(torch.LongTensor([42]), output_hidden_states=True)
+        out2, layer_output = model(torch.LongTensor([42]))
+
+        delta = torch.abs(torch.max(out1.hidden_states[-1] - out2))
+        self.assertTrue(delta < 1e-3, f"fail at final output, delta {delta}")
+
+        for i in range(config.num_hidden_layers):
+            t1 = out1.hidden_states[i][0]
+            t2 = layer_output[i]
+            delta = torch.abs(torch.max(t2 - t1))
+            self.assertTrue(delta < 1e-3, f"fail at layer {i}, delta {delta}")
