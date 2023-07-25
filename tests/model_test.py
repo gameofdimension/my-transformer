@@ -5,7 +5,7 @@ import torch
 from transformers import AutoModelForCausalLM
 
 from model.config import Gpt2Config
-from model.one_piece import weighted_sum, Model
+from model.gpt2 import weighted_sum, Model
 
 
 class ModelTest(unittest.TestCase):
