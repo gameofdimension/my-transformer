@@ -179,6 +179,7 @@ class Model(nn.Module):
             ref_name = name_mapping(name)
             ref_param = ref_state_dict[ref_name]
             if "weight" in name and ('.mlp.' in name or '.mha.' in name):
+                # gpt2 用了 Conv1D 而不是 nn.Linear
                 param.data.copy_(ref_param.transpose(0, 1))
             else:
                 param.data.copy_(ref_param)
