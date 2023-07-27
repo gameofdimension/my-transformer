@@ -30,7 +30,7 @@ class MultiHeadAttention(nn.Module):
         self.config = config
 
     def forward(self, hidden_states: torch.Tensor):
-        all_head_qkv = self.qkv_proj(hidden_states)
+        all_head_qkv = self.W_pack(hidden_states)
         dim = self.config.hidden_size // self.config.num_attention_heads
         step = all_head_qkv.size(dim=-1) // 3
 
