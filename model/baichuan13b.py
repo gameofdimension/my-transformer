@@ -50,7 +50,7 @@ class MultiHeadAttention(nn.Module):
         output = attention_func(
             seq_length=seq_length, num_attention_heads=self.config.num_attention_heads,
             hidden_size=self.config.hidden_size, get_q=get_q, get_k=get_k, get_v=get_v)
-        return self.out_proj(output)
+        return self.o_proj(output)
 
 
 class Block(nn.Module):
@@ -135,3 +135,9 @@ class Model(nn.Module):
             ref_name = name_mapping(name)
             ref_param = ref_state_dict[ref_name]
             param.data.copy_(ref_param)
+
+
+if __name__ == '__main__':
+    config = Baichuan13bConfig(num_hidden_layers=2)
+    model = Model(config)
+    model(torch.LongTensor([32, 42]))
