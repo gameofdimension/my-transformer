@@ -135,9 +135,3 @@ class Model(nn.Module):
             ref_name = name_mapping(name)
             ref_param = ref_state_dict[ref_name]
             param.data.copy_(ref_param)
-
-
-if __name__ == '__main__':
-    config = Baichuan13bConfig(num_hidden_layers=2)
-    model = Model(config)
-    model(torch.LongTensor([32, 42]))
