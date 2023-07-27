@@ -116,7 +116,7 @@ class Model(nn.Module):
         self.rms = RMSNorm(hidden_size=config.hidden_size, eps=config.rms_norm_eps)
 
     def forward(self, input_ids: torch.LongTensor):
-        hidden_states = self.word_embedding_table(input_ids)
+        hidden_states = self.embed_tokens(input_ids)
         layers_output = [hidden_states.detach()]
         for layer in self.layers:
             hidden_states = layer(hidden_states)
