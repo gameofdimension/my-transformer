@@ -4,7 +4,7 @@ from transformers import AutoModelForCausalLM
 from transformers.activations import get_activation
 
 from model.baichuan13b_config import Baichuan13bConfig
-from model.common import RMSNorm, attention_func
+from model.common import RMSNorm, attention_func, slope_factory
 
 
 class Mlp(nn.Module):
@@ -47,9 +47,11 @@ class MultiHeadAttention(nn.Module):
             return all_head_qkv[idx, base + head * dim:base + (head + 1) * dim]
 
         seq_length = hidden_states.shape[0]
+        alibi_get_m = slope_factory(self.config.num_attention_heads)
         output = attention_func(
             seq_length=seq_length, num_attention_heads=self.config.num_attention_heads,
-            hidden_size=self.config.hidden_size, get_q=get_q, get_k=get_k, get_v=get_v)
+            hidden_size=self.config.hidden_size, get_q=get_q, get_k=get_k, get_v=get_v,
+            alibi_get_m=alibi_get_m)
         return self.o_proj(output)
 
 
