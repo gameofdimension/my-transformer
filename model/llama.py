@@ -5,20 +5,8 @@ from torch import nn
 from transformers import AutoModelForCausalLM
 from transformers.activations import get_activation
 
-from model.common import attention_func
+from model.common import attention_func, RMSNorm
 from model.llama_config import LlamaConfig
-
-
-class RMSNorm(nn.Module):
-    def __init__(self, hidden_size: int, eps: float):
-        super().__init__()
-        self.eps = eps
-        self.weight = nn.Parameter(torch.ones(hidden_size))
-
-    def forward(self, hidden_states: torch.Tensor):
-        val = hidden_states * hidden_states
-        norm = torch.sqrt(torch.mean(val, dim=-1, keepdim=True) + self.eps)
-        return hidden_states / norm * self.weight
 
 
 class Rotary:

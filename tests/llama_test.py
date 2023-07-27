@@ -2,10 +2,9 @@ import unittest
 
 import torch
 from transformers import AutoModelForCausalLM
-
-from model.llama import RMSNorm, Model, Rotary
 from transformers.models.llama.modeling_llama import LlamaRMSNorm
 
+from model.llama import RMSNorm, Model
 from model.llama_config import LlamaConfig
 
 
