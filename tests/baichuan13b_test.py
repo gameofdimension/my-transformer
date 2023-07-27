@@ -47,7 +47,7 @@ class ModelTest(unittest.TestCase):
 
     def test_modeling(self):
         ref_model_id = "felixdae/Baichuan-13B-Chat"
-        ref_model = AutoModelForCausalLM.from_pretrained(ref_model_id)
+        ref_model = AutoModelForCausalLM.from_pretrained(ref_model_id, trust_remote_code=True)
 
         config = Baichuan13bConfig(num_hidden_layers=2)
         model = Model(config)

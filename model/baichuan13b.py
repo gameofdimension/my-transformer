@@ -125,7 +125,7 @@ class Model(nn.Module):
 
     def load_weights_from_hf(self, model_id):
         # model_id = "felixdae/Baichuan-13B-Chat"
-        ref_model = AutoModelForCausalLM.from_pretrained(model_id)
+        ref_model = AutoModelForCausalLM.from_pretrained(model_id, trust_remote_code=True)
 
         state_dict = self.state_dict()
         ref_state_dict = ref_model.state_dict()
