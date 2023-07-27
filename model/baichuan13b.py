@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from transformers import AutoModelForCausalLM
 from transformers.activations import get_activation
 
 from model.baichuan13b_config import Baichuan13bConfig
@@ -76,6 +77,36 @@ class Block(nn.Module):
         return x
 
 
+def name_mapping(param: str):
+    out = {
+        "embed_tokens.weight": "model.embed_tokens.weight",
+        "rms.weight": "model.norm.weight",
+    }
+    if param in out:
+        return out[param]
+
+    li = param.split('.')[1]
+    prefix = f"model.layers.{li}."
+    if "rn1.weight" in param:
+        postfix = "input_layernorm.weight"
+    elif "mha.W_pack.weight" in param:
+        postfix = "self_attn.W_pack.weight"
+    elif "mha.o_proj.weight" in param:
+        postfix = "self_attn.o_proj.weight"
+    elif "rn2.weight" in param:
+        postfix = "post_attention_layernorm.weight"
+    elif "mlp.gate_proj.weight" in param:
+        postfix = "mlp.gate_proj.weight"
+    elif "mlp.up_proj.weight" in param:
+        postfix = "mlp.up_proj.weight"
+    elif "mlp.down_proj.weight" in param:
+        postfix = "mlp.down_proj.weight"
+    else:
+        assert False
+
+    return prefix + postfix
+
+
 class Model(nn.Module):
     def __init__(self, config: Baichuan13bConfig):
         super().__init__()
@@ -92,9 +123,15 @@ class Model(nn.Module):
             layers_output.append(hidden_states.detach())
         return self.rms(hidden_states), layers_output
 
+    def load_weights_from_hf(self, model_id):
+        # model_id = "felixdae/Baichuan-13B-Chat"
+        ref_model = AutoModelForCausalLM.from_pretrained(model_id)
 
-if __name__ == '__main__':
-    config = Baichuan13bConfig(num_hidden_layers=2)
-    model = Model(config)
-
-    print(model)
+        state_dict = self.state_dict()
+        ref_state_dict = ref_model.state_dict()
+        for tup in self.named_parameters():
+            name = tup[0]
+            param = state_dict[name]
+            ref_name = name_mapping(name)
+            ref_param = ref_state_dict[ref_name]
+            param.data.copy_(ref_param)

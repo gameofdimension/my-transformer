@@ -166,7 +166,6 @@ class Model(nn.Module):
 
     def load_weights_from_hf(self, model_id):
         """
-        因为是复刻 huggingface gpt2，所以可以直接加载其模型权重
         :return:
         """
         # model_id = 'felixdae/Llama-2-7b-hf'
