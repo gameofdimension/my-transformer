@@ -124,7 +124,7 @@ class Model(nn.Module):
         :return:
         """
         # model_id = 'felixdae/chatglm-6b'
-        ref_model = AutoModel.from_pretrained(model_id)
+        ref_model = AutoModel.from_pretrained(model_id, trust_remote_code=True)
 
         state_dict = self.state_dict()
         ref_state_dict = ref_model.state_dict()

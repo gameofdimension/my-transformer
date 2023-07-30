@@ -11,7 +11,7 @@ class ModelTest(unittest.TestCase):
 
     def test_modeling(self):
         ref_model_id = "felixdae/chatglm-6b"
-        ref_model = AutoModel.from_pretrained(ref_model_id)
+        ref_model = AutoModel.from_pretrained(ref_model_id, trust_remote_code=True)
 
         config = ChatGLMConfig(num_layers=2)
         model = Model(config)
