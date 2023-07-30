@@ -20,7 +20,7 @@ class ModelTest(unittest.TestCase):
 
         input_ids, position_ids = torch.LongTensor([42, 130001, 130004]), torch.LongTensor([[0, 1, 1], [0, 0, 1]])
         out1 = ref_model(input_ids.cuda(), position_ids.cuda(), output_hidden_states=True)
-        out2, layer_output = model(input_ids, position_ids)
+        out2, layer_output = model(input_ids.unsqueeze(0), position_ids.unsqueeze(0))
 
         delta = torch.abs(torch.max(out1.hidden_states[-1][0] - out2))
         self.assertTrue(delta < 1e-3, f"fail at final output, delta {delta}")
