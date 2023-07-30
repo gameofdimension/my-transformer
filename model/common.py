@@ -83,7 +83,7 @@ class Rotary:
 
     def _pad(self, target: int):
         base = 10000
-        for m in range(len(self.matrix_lst) + 1, target + 1):
+        for m in range(len(self.matrix_lst), target + 1):
             matrix = torch.zeros(size=(self.d, self.d))
 
             for j in range(self.d // 2):
@@ -92,13 +92,13 @@ class Rotary:
                 matrix[2 * j, 2 * j + 1] = -math.sin(m * theta)
                 matrix[2 * j + 1, 2 * j + 1] = math.cos(m * theta)
                 matrix[2 * j + 1, 2 * j] = math.sin(m * theta)
-            assert m == len(self.matrix_lst) + 1
+            # assert m == len(self.matrix_lst) + 1
             self.matrix_lst.append(matrix)
 
     def apply(self, m: int, vec: torch.Tensor):
-        assert m >= 1
+        assert m >= 0
         assert vec.size(-1) == self.d
-        if m > len(self.matrix_lst):
+        if m >= len(self.matrix_lst):
             self._pad(m)
-        matrix = self.matrix_lst[m - 1]
+        matrix = self.matrix_lst[m]
         return matrix @ vec

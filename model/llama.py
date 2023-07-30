@@ -44,10 +44,10 @@ class MultiHeadAttention(nn.Module):
         head_dim = self.config.hidden_size // head_num
 
         def get_q(idx: int, head: int):
-            return self.rotary.apply(idx + 1, all_q[idx, head * head_dim:(head + 1) * head_dim])
+            return self.rotary.apply(idx, all_q[idx, head * head_dim:(head + 1) * head_dim])
 
         def get_k(idx: int, head: int):
-            return self.rotary.apply(idx + 1, all_k[idx, head * head_dim:(head + 1) * head_dim])
+            return self.rotary.apply(idx, all_k[idx, head * head_dim:(head + 1) * head_dim])
 
         def get_v(idx: int, head: int):
             return all_v[idx, head * head_dim:(head + 1) * head_dim]
