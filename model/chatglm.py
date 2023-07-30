@@ -87,18 +87,19 @@ class Block(nn.Module):
         self.alpha = (2 * config.num_layers) ** 0.5
 
     def forward(self, hidden_states: torch.LongTensor, position_ids: torch.LongTensor):
-        print("0000", hidden_states[:, :5])
         attention_input = self.input_layernorm(hidden_states)
+        print("0000", attention_input[:, :5])
+        print("0000", position_ids[:, :5])
         attention_output = self.mha(attention_input, position_ids)
-        hidden_states = self.alpha * attention_input + attention_output
-        print("1111", attention_input[:, :5])
         print("1111", attention_output[:, :5])
-        print("1111", hidden_states[:, :5])
+        hidden_states = self.alpha * attention_input + attention_output
+        # print("1111", attention_output[:, :5])
+        # print("1111", hidden_states[:, :5])
 
         mlp_input = self.post_attention_layernorm(hidden_states)
         mlp_output = self.mlp(hidden_states)
         hidden_states = self.alpha * mlp_input + mlp_output
-        print("2222", hidden_states[:, :5])
+        # print("2222", hidden_states[:, :5])
         return hidden_states
 
 
