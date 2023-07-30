@@ -51,11 +51,13 @@ class MultiHeadAttention(nn.Module):
             q1q2 = all_qkv[idx, base + 0 * head_dim:base + 1 * head_dim]
             p = position_ids[0][idx]
             b = position_ids[1][idx]
-            print("0000", q1q2[:5])
+            if head == 0:
+                print("0000", q1q2[:5])
             q1 = self.rotary.apply(p + 1, q1q2[:head_dim // 2])
             q2 = self.rotary.apply(b + 1, q1q2[head_dim // 2:])
             q1q2 = torch.concat([q1, q2])
-            print("1111", q1q2[:5])
+            if head == 0:
+                print("1111", q1q2[:5])
             return q1q2
 
         def get_k(idx: int, head: int):
