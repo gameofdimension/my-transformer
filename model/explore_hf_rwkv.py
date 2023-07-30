@@ -6,7 +6,7 @@ def main():
     model = AutoModelForCausalLM.from_pretrained("RWKV/rwkv-4-430m-pile")
     tokenizer = AutoTokenizer.from_pretrained("RWKV/rwkv-4-430m-pile")
 
-    prompt = "\nhello"
+    prompt = "\nonce upon a"
 
     inputs = tokenizer(prompt, return_tensors="pt")
     output = model.generate(inputs["input_ids"], max_new_tokens=40)
