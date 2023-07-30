@@ -22,7 +22,7 @@ class ModelTest(unittest.TestCase):
         out1 = ref_model(input_ids.unsqueeze(0).cuda(), position_ids.unsqueeze(0).cuda(), output_hidden_states=True)
         out2, layer_output = model(input_ids, position_ids)
 
-        delta = torch.abs(torch.max(out1.hidden_states[-1][0] - out2))
+        delta = torch.abs(torch.max(out1.hidden_states[-1][0].cpu() - out2))
         self.assertTrue(delta < 1e-3, f"fail at final output, delta {delta}")
 
         for i in range(config.num_layers):
