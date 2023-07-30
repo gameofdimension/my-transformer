@@ -91,6 +91,8 @@ class Block(nn.Module):
         attention_input = self.input_layernorm(hidden_states)
         attention_output = self.mha(attention_input, position_ids)
         hidden_states = self.alpha * attention_input + attention_output
+        print("1111", attention_input[:, :5])
+        print("1111", attention_output[:, :5])
         print("1111", hidden_states[:, :5])
 
         mlp_input = self.post_attention_layernorm(hidden_states)
