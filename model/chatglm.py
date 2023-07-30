@@ -87,6 +87,7 @@ class Block(nn.Module):
         self.alpha = (2 * config.num_layers) ** 0.5
 
     def forward(self, hidden_states: torch.LongTensor, position_ids: torch.LongTensor):
+        print("0000", hidden_states[:, :5])
         attention_input = self.input_layernorm(hidden_states)
         attention_output = self.mha(attention_input, position_ids)
         hidden_states = self.alpha * attention_input + attention_output
