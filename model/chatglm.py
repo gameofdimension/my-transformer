@@ -1,35 +1,9 @@
 import torch
 from torch import nn
-from transformers import AutoModelForCausalLM
-from transformers.activations import get_activation
+from transformers import AutoModel
 
 from model.chatglm_config import ChatGLMConfig
 from model.common import Rotary, attention_func
-
-"""
-ChatGLMForConditionalGeneration(
-  (transformer): ChatGLMModel(
-    (word_embeddings): Embedding(130528, 4096)
-    (layers): ModuleList(
-      (0-27): 28 x GLMBlock(
-        (input_layernorm): LayerNorm((4096,), eps=1e-05, elementwise_affine=True)
-        (attention): SelfAttention(
-          (rotary_emb): RotaryEmbedding()
-          (query_key_value): Linear(in_features=4096, out_features=12288, bias=True)
-          (dense): Linear(in_features=4096, out_features=4096, bias=True)
-        )
-        (post_attention_layernorm): LayerNorm((4096,), eps=1e-05, elementwise_affine=True)
-        (mlp): GLU(
-          (dense_h_to_4h): Linear(in_features=4096, out_features=16384, bias=True)
-          (dense_4h_to_h): Linear(in_features=16384, out_features=4096, bias=True)
-        )
-      )
-    )
-    (final_layernorm): LayerNorm((4096,), eps=1e-05, elementwise_affine=True)
-  )
-  (lm_head): Linear(in_features=4096, out_features=130528, bias=False)
-)
-"""
 
 
 def gelu_impl(x):
@@ -123,6 +97,12 @@ class Block(nn.Module):
         return hidden_states
 
 
+def name_mapping(param: str):
+    if '.mha.' in param:
+        param = param.replace('.mha.', '.attention.')
+    return 'transformer.' + param
+
+
 class Model(nn.Module):
     def __init__(self, config: ChatGLMConfig):
         super().__init__()
@@ -139,9 +119,18 @@ class Model(nn.Module):
             layers_output.append(hidden_states.detach())
         return self.final_layernorm(hidden_states), layers_output
 
+    def load_weights_from_hf(self, model_id):
+        """
+        :return:
+        """
+        # model_id = 'felixdae/chatglm-6b'
+        ref_model = AutoModel.from_pretrained(model_id)
 
-if __name__ == '__main__':
-    config = ChatGLMConfig(num_layers=2)
-    model = Model(config)
-    hidden_states, layers_output = model(torch.LongTensor([42]), torch.LongTensor([[6], [0]]))
-    print(hidden_states.size())
+        state_dict = self.state_dict()
+        ref_state_dict = ref_model.state_dict()
+        for tup in self.named_parameters():
+            name = tup[0]
+            param = state_dict[name]
+            ref_name = name_mapping(name)
+            ref_param = ref_state_dict[ref_name]
+            param.data.copy_(ref_param)
