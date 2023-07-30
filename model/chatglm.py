@@ -51,9 +51,12 @@ class MultiHeadAttention(nn.Module):
             q1q2 = all_qkv[idx, base + 0 * head_dim:base + 1 * head_dim]
             p = position_ids[0][idx]
             b = position_ids[1][idx]
+            print("0000", q1q2[:5])
             q1 = self.rotary.apply(p + 1, q1q2[:head_dim // 2])
             q2 = self.rotary.apply(b + 1, q1q2[head_dim // 2:])
-            return torch.concat([q1, q2])
+            q1q2 = torch.concat([q1, q2])
+            print("1111", q1q2[:5])
+            return q1q2
 
         def get_k(idx: int, head: int):
             base = head * (3 * head_dim)
@@ -88,10 +91,7 @@ class Block(nn.Module):
 
     def forward(self, hidden_states: torch.LongTensor, position_ids: torch.LongTensor):
         attention_input = self.input_layernorm(hidden_states)
-        print("0000", attention_input[:, :5])
-        print("0000", position_ids[:, :5])
         attention_output = self.mha(attention_input, position_ids)
-        print("1111", attention_output[:, :5])
         hidden_states = self.alpha * attention_input + attention_output
         # print("1111", attention_output[:, :5])
         # print("1111", hidden_states[:, :5])

@@ -10,6 +10,7 @@ from model.chatglm_config import ChatGLMConfig
 class ModelTest(unittest.TestCase):
 
     def test_modeling(self):
+        print()
         ref_model_id = "felixdae/chatglm-6b"
         ref_model = AutoModel.from_pretrained(ref_model_id, trust_remote_code=True)
         ref_model = ref_model.half().cuda()
