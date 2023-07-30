@@ -52,6 +52,7 @@ class MultiHeadAttention(nn.Module):
             p = position_ids[0][idx]
             b = position_ids[1][idx]
             if head == 0:
+                print("0000", q1q2.size())
                 print("0000", q1q2[:5])
             q1 = self.rotary.apply(p + 1, q1q2[:head_dim // 2])
             q2 = self.rotary.apply(b + 1, q1q2[head_dim // 2:])
