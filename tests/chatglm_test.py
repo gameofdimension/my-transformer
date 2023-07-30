@@ -26,6 +26,7 @@ class ModelTest(unittest.TestCase):
         # self.assertTrue(delta < 1e-3, f"fail at final output, delta {delta}")
 
         for i in range(config.num_layers):
+            print(f"layer {i}")
             t1 = out1.hidden_states[i].transpose(0, 1)[0]
             t2 = layer_output[i]
             print(t1[:, :5])
