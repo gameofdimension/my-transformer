@@ -17,8 +17,8 @@ class ModelTest(unittest.TestCase):
         model = Model(config)
         model.load_weights_from_hf(ref_model_id)
 
-        out1 = ref_model(torch.LongTensor([[42, 2]]), output_hidden_states=True)
-        out2, layer_output = model(torch.LongTensor([0, 1], [1, 2]))
+        out1 = ref_model(torch.LongTensor([[42, 130001, 130004]]), output_hidden_states=True)
+        out2, layer_output = model(torch.LongTensor([0, 1, 1], [0, 0, 1]))
 
         delta = torch.abs(torch.max(out1.hidden_states[-1][0] - out2))
         self.assertTrue(delta < 1e-3, f"fail at final output, delta {delta}")
