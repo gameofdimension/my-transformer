@@ -73,3 +73,32 @@ def attention_func(
         output.append(final_value)
     output = torch.stack(output)
     return output
+
+
+class Rotary:
+    def __init__(self, d: int):
+        assert d % 2 == 0
+        self.d = d
+        self.matrix_lst = []
+
+    def _pad(self, target: int):
+        base = 10000
+        for m in range(len(self.matrix_lst) + 1, target + 1):
+            matrix = torch.zeros(size=(self.d, self.d))
+
+            for j in range(self.d // 2):
+                theta = base ** (-2 * j / self.d)
+                matrix[2 * j, 2 * j] = math.cos(m * theta)
+                matrix[2 * j, 2 * j + 1] = -math.sin(m * theta)
+                matrix[2 * j + 1, 2 * j + 1] = math.cos(m * theta)
+                matrix[2 * j + 1, 2 * j] = math.sin(m * theta)
+            assert m == len(self.matrix_lst) + 1
+            self.matrix_lst.append(matrix)
+
+    def apply(self, m: int, vec: torch.Tensor):
+        assert m >= 1
+        assert vec.size(-1) == self.d
+        if m > len(self.matrix_lst):
+            self._pad(m)
+        matrix = self.matrix_lst[m - 1]
+        return matrix @ vec
