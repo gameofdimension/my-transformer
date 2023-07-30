@@ -54,8 +54,8 @@ class MultiHeadAttention(nn.Module):
             if head == 0:
                 print("0000", q1q2.size())
                 print("0000", q1q2[:5])
-            q1 = self.rotary.apply(p, q1q2[:head_dim // 2])
-            q2 = self.rotary.apply(b, q1q2[head_dim // 2:])
+            q1 = self.rotary.apply(p + 1, q1q2[:head_dim // 2])
+            q2 = self.rotary.apply(b + 1, q1q2[head_dim // 2:])
             q1q2 = torch.concat([q1, q2])
             if head == 0:
                 print("1111", q1q2[:5])
