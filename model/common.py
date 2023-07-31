@@ -78,6 +78,11 @@ def attention_func(
 def glm_attention_func(
         seq_length: int, num_attention_heads: int, hidden_size: int,
         gmask_pos: int, get_q: Callable, get_k: Callable, get_v: Callable):
+    """
+    清华的 glm 架构下的 attention 计算，跟标准的 attention 差别比较大。差异体现在：
+    1. 2d 位置编码，从而导致不同的向量旋转算法
+    2. context 部分是可以双向注意力的，也是就是 gmask_pos 之前的位置（包含）
+    """
     assert hidden_size % num_attention_heads == 0
     head_dim = hidden_size // num_attention_heads
     scale = head_dim ** 0.5
