@@ -75,6 +75,36 @@ def attention_func(
     return output
 
 
+def glm_attention_func(
+        seq_length: int, num_attention_heads: int, hidden_size: int,
+        gmask_pos: int, get_q: Callable, get_k: Callable, get_v: Callable):
+    assert hidden_size % num_attention_heads == 0
+    head_dim = hidden_size // num_attention_heads
+    scale = head_dim ** 0.5
+    output = []
+    for tk in range(seq_length):
+        final_value = []
+        for h in range(num_attention_heads):
+            q = get_q(tk, h)
+            scores = []
+            v = []
+            if tk <= gmask_pos:
+                end = gmask_pos
+            else:
+                end = tk
+            for p in range(end + 1):
+                score = torch.dot(q, get_k(p, h)) / scale
+                scores.append(score)
+                v.append(get_v(p, h))
+            ws = weighted_sum(scores, v)
+            final_value.append(ws)
+        final_value = torch.stack(final_value).view(1, -1).squeeze()
+        assert final_value.shape[0] == hidden_size
+        output.append(final_value)
+    output = torch.stack(output)
+    return output
+
+
 class Rotary:
     def __init__(self, d: int):
         assert d % 2 == 0

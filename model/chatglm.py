@@ -3,7 +3,7 @@ from torch import nn
 from transformers import AutoModel
 
 from model.chatglm_config import ChatGLMConfig
-from model.common import Rotary, attention_func
+from model.common import Rotary, glm_attention_func
 
 
 def gelu_impl(x):
@@ -39,7 +39,7 @@ class MultiHeadAttention(nn.Module):
         self.rotary = Rotary(config.hidden_size // (2 * config.num_attention_heads))
         self.config = config
 
-    def forward(self, hidden_states: torch.LongTensor, position_ids: torch.LongTensor):
+    def forward(self, hidden_states: torch.LongTensor, position_ids: torch.LongTensor, gmask_pos: int):
         assert len(position_ids.size()) == 2 and position_ids.size(0) == 2
         all_qkv = self.query_key_value(hidden_states)
 
@@ -51,15 +51,9 @@ class MultiHeadAttention(nn.Module):
             q1q2 = all_qkv[idx, base + 0 * head_dim:base + 1 * head_dim]
             p = position_ids[0][idx]
             b = position_ids[1][idx]
-            # if head == 0:
-            #     print("0000", q1q2.size())
-            #     print("0000", q1q2[:5])
             q1 = self.rotary.apply(p, q1q2[:head_dim // 2])
             q2 = self.rotary.apply(b, q1q2[head_dim // 2:])
-            q1q2 = torch.concat([q1, q2])
-            # if head == 0:
-            #     print("1111", q1q2[:5])
-            return q1q2
+            return torch.concat([q1, q2])
 
         def get_k(idx: int, head: int):
             base = head * (3 * head_dim)
@@ -75,10 +69,12 @@ class MultiHeadAttention(nn.Module):
             return all_qkv[idx, base + 2 * head_dim:base + 3 * head_dim]
 
         seq_length = hidden_states.shape[0]
-        output = attention_func(
+        output = glm_attention_func(
             seq_length=seq_length, num_attention_heads=self.config.num_attention_heads,
-            hidden_size=self.config.hidden_size, get_q=get_q, get_k=get_k, get_v=get_v)
-        return self.dense(output)
+            hidden_size=self.config.hidden_size, gmask_pos=gmask_pos,
+            get_q=get_q, get_k=get_k, get_v=get_v)
+        output = self.dense(output)
+        return output
 
 
 class Block(nn.Module):
@@ -90,21 +86,18 @@ class Block(nn.Module):
         self.post_attention_layernorm = nn.LayerNorm(config.hidden_size, eps=config.layernorm_epsilon)
         self.mlp = Mlp(config)
 
-        self.alpha = (2 * config.num_layers) ** 0.5
+        # self.alpha = (2 * config.num_layers) ** 0.5
+        # it was hard coded, seems like a bug
+        self.alpha = (2 * 28) ** 0.5
 
-    def forward(self, hidden_states: torch.LongTensor, position_ids: torch.LongTensor):
+    def forward(self, hidden_states: torch.LongTensor, position_ids: torch.LongTensor, gmask_pos: int):
         attention_input = self.input_layernorm(hidden_states)
-        print("0000", attention_input[:, :5])
-        attention_output = self.mha(attention_input, position_ids)
-        print("1111", attention_output[:, :5])
+        attention_output = self.mha(attention_input, position_ids, gmask_pos)
         hidden_states = self.alpha * attention_input + attention_output
-        # print("1111", attention_output[:, :5])
-        # print("1111", hidden_states[:, :5])
 
         mlp_input = self.post_attention_layernorm(hidden_states)
-        mlp_output = self.mlp(hidden_states)
+        mlp_output = self.mlp(mlp_input)
         hidden_states = self.alpha * mlp_input + mlp_output
-        # print("2222", hidden_states[:, :5])
         return hidden_states
 
 
@@ -120,13 +113,15 @@ class Model(nn.Module):
         self.word_embeddings = nn.Embedding(num_embeddings=config.vocab_size, embedding_dim=config.hidden_size)
         self.layers = nn.ModuleList([Block(layer_id=i, config=config) for i in range(config.num_layers)])
         self.final_layernorm = nn.LayerNorm(config.hidden_size, eps=config.layernorm_epsilon)
+        self.config = config
 
     def forward(self, input_ids: torch.LongTensor, position_ids: torch.LongTensor):
         assert len(input_ids.size()) == 1
         hidden_states = self.word_embeddings(input_ids)
+        gmask_pos = input_ids.tolist().index(self.config.gmask_token_id)
         layers_output = [hidden_states.detach()]
         for layer in self.layers:
-            hidden_states = layer(hidden_states, position_ids)
+            hidden_states = layer(hidden_states, position_ids, gmask_pos)
             layers_output.append(hidden_states.detach())
         return self.final_layernorm(hidden_states), layers_output
 
