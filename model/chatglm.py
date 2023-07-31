@@ -87,7 +87,7 @@ class Block(nn.Module):
         self.mlp = Mlp(config)
 
         # self.alpha = (2 * config.num_layers) ** 0.5
-        # it was hard coded, seems like a bug
+        # it was hard coded in official implementation, seems like a bug
         self.alpha = (2 * 28) ** 0.5
 
     def forward(self, hidden_states: torch.LongTensor, position_ids: torch.LongTensor, gmask_pos: int):
