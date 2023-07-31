@@ -125,8 +125,6 @@ class RotaryTest(unittest.TestCase):
 
     def test_gold(self):
         torch.manual_seed(0)
-        # print()
-
         dim = 32
         gr = RotaryEmbedding(dim)
         lm = LlamaRotaryEmbedding(dim)
