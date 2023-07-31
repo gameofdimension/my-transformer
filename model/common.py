@@ -134,7 +134,6 @@ class Rotary:
                 matrix[j, j + self.d // 2] = -math.sin(m * theta)
                 matrix[j + self.d // 2, j + self.d // 2] = math.cos(m * theta)
                 matrix[j + self.d // 2, j] = math.sin(m * theta)
-            # assert m == len(self.matrix_lst) + 1
             self.matrix_lst.append(matrix)
 
     def apply(self, m: int, vec: torch.Tensor):
