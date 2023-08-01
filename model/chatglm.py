@@ -31,7 +31,7 @@ class Mlp(nn.Module):
 
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, layer_id: int, config: ChatGLMConfig):
+    def __init__(self, config: ChatGLMConfig):
         super().__init__()
         self.query_key_value = nn.Linear(in_features=config.hidden_size, out_features=3 * config.hidden_size)
         self.dense = nn.Linear(in_features=config.hidden_size, out_features=config.hidden_size)
@@ -82,7 +82,7 @@ class Block(nn.Module):
         super().__init__()
         self.layer_id = layer_id
         self.input_layernorm = nn.LayerNorm(config.hidden_size, eps=config.layernorm_epsilon)
-        self.mha = MultiHeadAttention(layer_id=layer_id, config=config)
+        self.mha = MultiHeadAttention(config=config)
         self.post_attention_layernorm = nn.LayerNorm(config.hidden_size, eps=config.layernorm_epsilon)
         self.mlp = Mlp(config)
 
