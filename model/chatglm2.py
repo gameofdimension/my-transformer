@@ -132,37 +132,3 @@ class Model(nn.Module):
             ref_name = name_mapping(name)
             ref_param = ref_state_dict[ref_name]
             param.data.copy_(ref_param)
-
-
-# if __name__ == '__main__':
-#
-#     # for i in range(1, 8):
-#     #     my = torch.load(f'/Users/yzq/Work/github/my-transformer/model/my1-{i}.pt')
-#
-#     for l in (1,):
-#         gq = torch.load(f"/Users/yzq/Work/github/my-transformer/model/gd_{l}-query.pt")
-#         gk = torch.load(f"/Users/yzq/Work/github/my-transformer/model/gd_{l}-key.pt")
-#         gv = torch.load(f"/Users/yzq/Work/github/my-transformer/model/gd_{l}-value.pt")
-#         print(gq.size(), gk.size(), gv.size())
-#         for s in (0, 1):
-#             for h in range(32):
-#                 query = torch.load(f"/Users/yzq/Work/github/my-transformer/model/my_q-{l}-{s}-{h}.pt")
-#                 key = torch.load(f"/Users/yzq/Work/github/my-transformer/model/my_k-{l}-{s}-{h}.pt")
-#                 value = torch.load(f"/Users/yzq/Work/github/my-transformer/model/my_v-{l}-{s}-{h}.pt")
-#                 deltaq = torch.max(torch.abs(query - gq[0, h, s])).item()
-#                 if deltaq > 1e-3:
-#                     print(f"addr {l},{s},{h} diff of q", deltaq)
-#                     print(query[:64].detach())
-#                     print(gq[0, h, s, :64].detach())
-#                     print(query[61:66].detach())
-#                     print(gq[0, h, s, 61:66].detach())
-#
-#                 deltak = torch.max(torch.abs(key - gk[0, h, s])).item()
-#                 if deltak > 1e-3:
-#                     print(f"addr {l},{s},{h} diff of k", deltak)
-#                     print(key[:64].detach())
-#                     print(gk[0, h, s, :64].detach())
-#                     print(key[61:66].detach())
-#                     print(gk[0, h, s, 61:66].detach())
-#
-#                 print(f"addr {l},{s},{h} diff of v", torch.max(torch.abs(value - gv[0, h, s])).item())

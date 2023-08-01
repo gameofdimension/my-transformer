@@ -10,7 +10,6 @@ from model.chatglm2_config import ChatGLM2Config
 class ModelTest(unittest.TestCase):
 
     def test_modeling_cpu(self):
-        print()
         ref_model_id = "felixdae/chatglm2-6b"
         config = AutoConfig.from_pretrained(ref_model_id, trust_remote_code=True)
         ref_model = AutoModel.from_pretrained(ref_model_id, config=config, trust_remote_code=True)
