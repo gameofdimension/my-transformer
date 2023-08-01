@@ -111,10 +111,11 @@ def glm_attention_func(
 
 
 class Rotary:
-    def __init__(self, d: int):
+    def __init__(self, d: int, paper: bool = False):
         assert d % 2 == 0
         self.d = d
         self.matrix_lst = []
+        self.paper = paper
 
     def _pad(self, target: int):
         base = 10000
@@ -124,16 +125,17 @@ class Rotary:
             for j in range(self.d // 2):
                 theta = base ** (-2 * j / self.d)
                 # 以下是论文实现
-                # matrix[2 * j, 2 * j] = math.cos(m * theta)
-                # matrix[2 * j, 2 * j + 1] = -math.sin(m * theta)
-                # matrix[2 * j + 1, 2 * j + 1] = math.cos(m * theta)
-                # matrix[2 * j + 1, 2 * j] = math.sin(m * theta)
-
+                if self.paper:
+                    matrix[2 * j, 2 * j] = math.cos(m * theta)
+                    matrix[2 * j, 2 * j + 1] = -math.sin(m * theta)
+                    matrix[2 * j + 1, 2 * j + 1] = math.cos(m * theta)
+                    matrix[2 * j + 1, 2 * j] = math.sin(m * theta)
                 # 以下是 llama 实现
-                matrix[j, j] = math.cos(m * theta)
-                matrix[j, j + self.d // 2] = -math.sin(m * theta)
-                matrix[j + self.d // 2, j + self.d // 2] = math.cos(m * theta)
-                matrix[j + self.d // 2, j] = math.sin(m * theta)
+                else:
+                    matrix[j, j] = math.cos(m * theta)
+                    matrix[j, j + self.d // 2] = -math.sin(m * theta)
+                    matrix[j + self.d // 2, j + self.d // 2] = math.cos(m * theta)
+                    matrix[j + self.d // 2, j] = math.sin(m * theta)
             self.matrix_lst.append(matrix)
 
     def apply(self, m: int, vec: torch.Tensor):

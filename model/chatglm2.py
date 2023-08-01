@@ -27,14 +27,15 @@ class Mlp(nn.Module):
 
 
 class MultiQueryAttention(nn.Module):
-    def __init__(self, config: ChatGLM2Config):
+    def __init__(self, layer_num: int, config: ChatGLM2Config):
         super().__init__()
         assert config.hidden_size % config.num_attention_heads == 0
         assert config.kv_channels == config.hidden_size // config.num_attention_heads
         self.qkv_hidden_size = config.hidden_size + 2 * config.multi_query_group_num * config.kv_channels
         self.query_key_value = nn.Linear(config.hidden_size, self.qkv_hidden_size, bias=True)
         self.dense = nn.Linear(config.hidden_size, config.hidden_size, bias=False)
-        self.rotary = Rotary(config.kv_channels // 2)
+        self.rotary = Rotary(config.kv_channels // 2, paper=True)
+        self.layer_num = layer_num
         self.config = config
 
     def forward(self, hidden_states: torch.Tensor):
@@ -73,12 +74,13 @@ class MultiQueryAttention(nn.Module):
 
 
 class Block(nn.Module):
-    def __init__(self, config: ChatGLM2Config):
+    def __init__(self, layer_num: int, config: ChatGLM2Config):
         super().__init__()
         self.input_layernorm = RMSNorm(hidden_size=config.hidden_size, eps=config.layernorm_epsilon)
-        self.self_attention = MultiQueryAttention(config=config)
+        self.self_attention = MultiQueryAttention(layer_num, config=config)
         self.post_attention_layernorm = RMSNorm(hidden_size=config.hidden_size, eps=config.layernorm_epsilon)
         self.mlp = Mlp(config=config)
+        self.layer_num = layer_num
 
     def forward(self, hidden_states: torch.Tensor):
         x = self.input_layernorm(hidden_states)
@@ -103,7 +105,7 @@ class Model(nn.Module):
     def __init__(self, config: ChatGLM2Config):
         super().__init__()
         self.word_embeddings = nn.Embedding(num_embeddings=config.padded_vocab_size, embedding_dim=config.hidden_size)
-        self.layers = nn.ModuleList([Block(config=config) for _ in range(config.num_layers)])
+        self.layers = nn.ModuleList([Block(layer_num=i + 1, config=config) for i in range(config.num_layers)])
         self.final_layernorm = RMSNorm(hidden_size=config.hidden_size, eps=config.layernorm_epsilon)
 
     def forward(self, input_ids: torch.LongTensor):
@@ -130,3 +132,37 @@ class Model(nn.Module):
             ref_name = name_mapping(name)
             ref_param = ref_state_dict[ref_name]
             param.data.copy_(ref_param)
+
+
+# if __name__ == '__main__':
+#
+#     # for i in range(1, 8):
+#     #     my = torch.load(f'/Users/yzq/Work/github/my-transformer/model/my1-{i}.pt')
+#
+#     for l in (1,):
+#         gq = torch.load(f"/Users/yzq/Work/github/my-transformer/model/gd_{l}-query.pt")
+#         gk = torch.load(f"/Users/yzq/Work/github/my-transformer/model/gd_{l}-key.pt")
+#         gv = torch.load(f"/Users/yzq/Work/github/my-transformer/model/gd_{l}-value.pt")
+#         print(gq.size(), gk.size(), gv.size())
+#         for s in (0, 1):
+#             for h in range(32):
+#                 query = torch.load(f"/Users/yzq/Work/github/my-transformer/model/my_q-{l}-{s}-{h}.pt")
+#                 key = torch.load(f"/Users/yzq/Work/github/my-transformer/model/my_k-{l}-{s}-{h}.pt")
+#                 value = torch.load(f"/Users/yzq/Work/github/my-transformer/model/my_v-{l}-{s}-{h}.pt")
+#                 deltaq = torch.max(torch.abs(query - gq[0, h, s])).item()
+#                 if deltaq > 1e-3:
+#                     print(f"addr {l},{s},{h} diff of q", deltaq)
+#                     print(query[:64].detach())
+#                     print(gq[0, h, s, :64].detach())
+#                     print(query[61:66].detach())
+#                     print(gq[0, h, s, 61:66].detach())
+#
+#                 deltak = torch.max(torch.abs(key - gk[0, h, s])).item()
+#                 if deltak > 1e-3:
+#                     print(f"addr {l},{s},{h} diff of k", deltak)
+#                     print(key[:64].detach())
+#                     print(gk[0, h, s, :64].detach())
+#                     print(key[61:66].detach())
+#                     print(gk[0, h, s, 61:66].detach())
+#
+#                 print(f"addr {l},{s},{h} diff of v", torch.max(torch.abs(value - gv[0, h, s])).item())

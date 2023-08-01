@@ -25,15 +25,10 @@ class ModelTest(unittest.TestCase):
         out2, layer_output = model(input_ids)
 
         delta = torch.abs(torch.max(out1.hidden_states[-1].transpose(0, 1)[0] - layer_output[-1]))
-        # self.assertTrue(delta < 1e-3, f"fail at final output, delta {delta}")
-        print("delta", delta)
+        self.assertTrue(delta < 1e-4, f"fail at final output, delta {delta}")
 
         for i in range(config.num_layers):
-            print(f"layer {i}")
             t1 = out1.hidden_states[i].transpose(0, 1)[0]
             t2 = layer_output[i]
-            print(t1[:, :5])
-            print(t2[:, :5])
             delta = torch.abs(torch.max(t2 - t1))
-            # self.assertTrue(delta < 1e-3, f"fail at layer {i}, delta {delta}")
-            print("delta", delta)
+            self.assertTrue(delta < 1e-4, f"fail at layer {i}, delta {delta}")

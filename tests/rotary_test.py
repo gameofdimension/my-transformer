@@ -226,7 +226,7 @@ class RotaryTest(unittest.TestCase):
         y = ChatGLM2RotaryEmbedding.apply_rotary_pos_emb(x, cache)
 
         for i in range(seq):
-            mr = Rotary(d=dim // 2)
+            mr = Rotary(d=dim // 2, paper=True)
             z = mr.apply(i, x[i, 0, 0, :dim // 2])
             self.assertTrue(torch.max(torch.abs(z - y[i, 0, 0, :dim // 2])) < 1e-3)
             self.assertTrue(torch.max(torch.abs(x[i, 0, 0, dim // 2:] - y[i, 0, 0, dim // 2:])) < 1e-6)
