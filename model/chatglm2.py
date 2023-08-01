@@ -1,5 +1,4 @@
 import torch
-import torch.nn.functional as F
 from torch import nn
 from transformers import AutoModel
 
@@ -14,7 +13,7 @@ class Mlp(nn.Module):
 
         def swiglu(x):
             x = torch.chunk(x, 2, dim=-1)
-            return F.silu(x[0]) * x[1]
+            return torch.nn.functional.silu(x[0]) * x[1]
 
         self.activation_func = swiglu
 
@@ -27,7 +26,7 @@ class Mlp(nn.Module):
         return self.dense_4h_to_h(hidden_states)
 
 
-class MultiHeadAttention(nn.Module):
+class MultiQueryAttention(nn.Module):
     def __init__(self, config: ChatGLM2Config):
         super().__init__()
         assert config.hidden_size % config.num_attention_heads == 0
@@ -48,19 +47,21 @@ class MultiHeadAttention(nn.Module):
 
         def get_q(idx: int, head: int):
             query = all_qkv[idx, head * head_dim:(head + 1) * head_dim]
-            return torch.cat([self.rotary.apply(idx, query[:head_dim // 2]), query[head_dim // 2:]])
+            query = torch.cat([self.rotary.apply(idx, query[:head_dim // 2]), query[head_dim // 2:]])
+            return query
 
         def get_k(idx: int, head: int):
             base = head_num * head_dim
             key_group = all_qkv[idx, base:base + self.config.multi_query_group_num * head_dim]
-            cursor = (head % self.config.multi_query_group_num) * head_dim
+            cursor = (head // (head_num // 2)) * head_dim
             key = key_group[cursor:cursor + head_dim]
-            return torch.cat([self.rotary.apply(idx, key[:head_dim // 2]), key[head_dim // 2:]])
+            key = torch.cat([self.rotary.apply(idx, key[:head_dim // 2]), key[head_dim // 2:]])
+            return key
 
         def get_v(idx: int, head: int):
             base = head_num * head_dim + self.config.multi_query_group_num * head_dim
             value_group = all_qkv[idx, base:base + self.config.multi_query_group_num * head_dim]
-            cursor = (head % self.config.multi_query_group_num) * head_dim
+            cursor = (head // (head_num // 2)) * head_dim
             value = value_group[cursor:cursor + head_dim]
             return value
 
@@ -75,7 +76,7 @@ class Block(nn.Module):
     def __init__(self, config: ChatGLM2Config):
         super().__init__()
         self.input_layernorm = RMSNorm(hidden_size=config.hidden_size, eps=config.layernorm_epsilon)
-        self.self_attention = MultiHeadAttention(config=config)
+        self.self_attention = MultiQueryAttention(config=config)
         self.post_attention_layernorm = RMSNorm(hidden_size=config.hidden_size, eps=config.layernorm_epsilon)
         self.mlp = Mlp(config=config)
 
@@ -90,6 +91,14 @@ class Block(nn.Module):
         return hidden_states
 
 
+def name_mapping(param: str):
+    if 'word_embeddings.weight' in param:
+        return 'transformer.embedding.word_embeddings.weight'
+    if 'final_layernorm.weight' in param:
+        return 'transformer.encoder.final_layernorm.weight'
+    return 'transformer.encoder.' + param
+
+
 class Model(nn.Module):
     def __init__(self, config: ChatGLM2Config):
         super().__init__()
@@ -100,10 +109,10 @@ class Model(nn.Module):
     def forward(self, input_ids: torch.LongTensor):
         assert len(input_ids.size()) == 1
         hidden_states = self.word_embeddings(input_ids)
-        layers_output = [hidden_states.detach()]
+        layers_output = [hidden_states.clone().detach()]
         for layer in self.layers:
             hidden_states = layer(hidden_states)
-            layers_output.append(hidden_states.detach())
+            layers_output.append(hidden_states.clone().detach())
         return self.final_layernorm(hidden_states), layers_output
 
     def load_weights_from_hf(self, model_id):
@@ -121,11 +130,3 @@ class Model(nn.Module):
             ref_name = name_mapping(name)
             ref_param = ref_state_dict[ref_name]
             param.data.copy_(ref_param)
-
-
-def name_mapping(param: str):
-    if 'word_embeddings.weight' in param:
-        return 'transformer.embedding.word_embeddings.weight'
-    if 'final_layernorm.weight' in param:
-        return 'transformer.encoder.final_layernorm.weight'
-    return 'transformer.encoder.' + param
