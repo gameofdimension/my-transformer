@@ -13,7 +13,7 @@
 
 ### 各模型技术要点一览
 
-| |位置信息融入|normalization|激活函数|注意力|
+| |位置信息融入|normalization|激活函数|注意力机制|
 |---|---|---|---|---|
 |gpt2|可学习绝对位置编码|LayerNorm|gelu_new|单向自注意力|
 |llama|RoPE|RMSNorm|silu|单向自注意力|
