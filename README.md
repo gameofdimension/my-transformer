@@ -13,9 +13,17 @@
 
 ### 各模型技术要点一览
 
+| |位置信息融入|normalization|激活函数|注意力|
+|---|---|---|---|---|
+|gpt2|可学习绝对位置编码|LayerNorm|gelu_new|单向自注意力|
+|llama|RoPE|RMSNorm|silu|单向自注意力|
+|baichuan13b|Alibi|RMSNorm|silu|单向自注意力|
+|chatglm|RoPE, 2d position|post LayerNorm|gelu|前缀部分双向注意力，生成部分单向注意力|
+|chatglm2|RoPE|RMSNorm|swiglu|单向，分组注意力|
+
 - gpt2
   1. 标准 transformer 的 decoder 部分，只是去掉了来自 encoder 的 cross attention 输入。或者从另一个角度，它跟作为 encoder 的 bert 架构一样，但是 attention mask 是下三角的，以达到单向注意力的目的
-  2. 不同于原始 transformer，没有用正余弦位置编码，而是自学习的绝对位置编码
+  2. 不同于原始 transformer，没有用正余弦位置编码，而是可学习的绝对位置编码
   3. hugging face 实现中线性层用一阶卷积实现，没有用 `nn.Linear` ，因此加载权重的时候需要转置一下
 - llama
   1. 没有使用标准 layernorm，而是 rmsnorm。二者区别是后者假定数据均值为 0，因此无需平移
