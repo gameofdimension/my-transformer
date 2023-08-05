@@ -2,7 +2,7 @@ import unittest
 
 import torch
 
-from model.common import vectorized_attention
+from model.common import vectorized_attention, vectorized_attention_v2
 
 
 class AttentionTest(unittest.TestCase):
@@ -18,6 +18,9 @@ class AttentionTest(unittest.TestCase):
         my = vectorized_attention(query, key, value)
         self.assertTrue(torch.allclose(gold, my, atol=1e-6))
 
+        my_v2 = vectorized_attention_v2(query, key, value)
+        self.assertTrue(torch.allclose(gold, my_v2, atol=1e-6))
+
     def test_unilateral(self):
         b, s, h, d = 5, 6, 7, 8
         query = torch.randn((b, s, h, d))
@@ -30,3 +33,6 @@ class AttentionTest(unittest.TestCase):
         ).transpose(1, 2)
         my = vectorized_attention(query, key, value, is_causal=True)
         self.assertTrue(torch.allclose(gold, my, atol=1e-6))
+
+        my_v2 = vectorized_attention_v2(query, key, value, is_causal=True)
+        self.assertTrue(torch.allclose(gold, my_v2, atol=1e-6))
