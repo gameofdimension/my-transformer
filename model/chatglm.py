@@ -39,7 +39,7 @@ class MultiHeadAttention(nn.Module):
         self.rotary = Rotary(config.hidden_size // (2 * config.num_attention_heads))
         self.config = config
 
-    def forward(self, hidden_states: torch.LongTensor, position_ids: torch.LongTensor, gmask_pos: int):
+    def forward(self, hidden_states: torch.Tensor, position_ids: torch.LongTensor, gmask_pos: int):
         assert len(position_ids.size()) == 2 and position_ids.size(0) == 2
         all_qkv = self.query_key_value(hidden_states)
 
@@ -90,7 +90,7 @@ class Block(nn.Module):
         # it was hard coded in official implementation, seems like a bug
         self.alpha = (2 * 28) ** 0.5
 
-    def forward(self, hidden_states: torch.LongTensor, position_ids: torch.LongTensor, gmask_pos: int):
+    def forward(self, hidden_states: torch.Tensor, position_ids: torch.LongTensor, gmask_pos: int):
         attention_input = self.input_layernorm(hidden_states)
         attention_output = self.mha(attention_input, position_ids, gmask_pos)
         hidden_states = self.alpha * attention_input + attention_output
