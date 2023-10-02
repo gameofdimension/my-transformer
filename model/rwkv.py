@@ -135,11 +135,13 @@ class Model(nn.Module):
         assert len(input_ids.size()) == 2
         hidden_states = self.word_embedding_table(input_ids)
         hidden_states = self.pre_ln(hidden_states)
-        layers_output = [hidden_states.detach().clone()]
+        layers_output = []
         for layer in self.layers:
             hidden_states = layer(hidden_states)
             layers_output.append(hidden_states.detach().clone())
-        return self.post_ln(hidden_states), layers_output
+        last = self.post_ln(hidden_states)
+        layers_output.append(last.detach().clone())
+        return last, layers_output
 
     def load_weights_from_hf(self, model_id):
         """
@@ -193,28 +195,3 @@ def name_mapping(param: str):
         if 'receptance_mixer' in param:
             return prefix + ".feed_forward.time_mix_receptance"
         return prefix + f".feed_forward.{arr[-2]}.{arr[-1]}"
-
-
-def main():
-    model = Model(RwkvConfig())
-    model_id = "RWKV/rwkv-4-169m-pile"
-    model.load_weights_from_hf(model_id)
-
-    input_ids = torch.LongTensor([[2, 5], [3, 4]])
-    hs, output = model(input_ids)
-    print(hs.size())
-    print(hs[:, :, :5])
-
-
-"""
-tensor([[[ 0.3331, -0.1893, -0.9371, -0.2626,  0.2004],
-         [ 0.3663, -0.1645, -0.9951, -0.3056,  0.0879]],
-
-        [[-0.0356,  0.0923, -0.0142, -0.3919,  0.2644],
-         [-0.0784,  0.1401, -0.5753, -0.4224,  0.2791]]],
-       grad_fn=<SliceBackward0>)
-"""
-
-
-if __name__ == '__main__':
-    main()
