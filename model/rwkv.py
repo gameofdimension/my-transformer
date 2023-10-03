@@ -118,10 +118,15 @@ class Block(nn.Module):
         return hidden_states
 
 
+def should_rescale(idx: int, rescale_every: int, layers_are_rescaled: bool):
+    return layers_are_rescaled and rescale_every > 0 and (idx + 1) % rescale_every == 0
+
+
 class Model(nn.Module):
     def __init__(self, config: RwkvConfig):
         super().__init__()
-        # self.config = config
+        self.config = config
+        self.layers_are_rescaled = False
         self.word_embedding_table = nn.Embedding(config.vocab_size, config.hidden_size)
         self.layers = nn.ModuleList([Block(config) for _ in range(config.num_hidden_layers)])
         self.pre_ln = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_epsilon)
@@ -133,15 +138,42 @@ class Model(nn.Module):
         :return:
         """
         assert len(input_ids.size()) == 2
+        if self.config.rescale_every > 0:
+            self._try_rescale_layers()
+
         hidden_states = self.word_embedding_table(input_ids)
         hidden_states = self.pre_ln(hidden_states)
         layers_output = []
-        for layer in self.layers:
+        for idx, layer in enumerate(self.layers):
             hidden_states = layer(hidden_states)
+            if should_rescale(idx, self.config.rescale_every, self.layers_are_rescaled):
+                hidden_states = hidden_states / 2
             layers_output.append(hidden_states.detach().clone())
         last = self.post_ln(hidden_states)
         layers_output.append(last.detach().clone())
         return last, layers_output
+
+    def _try_rescale_layers(self):
+        # inference
+        if not self.training:
+            if self.layers_are_rescaled:
+                return
+            # rescale
+            with torch.no_grad():
+                for block_id, block in enumerate(self.layers):
+                    block.attention.output.weight.div_(2 ** int(block_id // self.config.rescale_every))
+                    block.ffn.value.weight.div_(2 ** int(block_id // self.config.rescale_every))
+            self.layers_are_rescaled = not self.layers_are_rescaled
+            return
+
+        if not self.layers_are_rescaled:
+            return
+        # revert
+        with torch.no_grad():
+            for block_id, block in enumerate(self.layers):
+                block.attention.output.weight.mul_(2 ** int(block_id // self.config.rescale_every))
+                block.ffn.value.weight.mul_(2 ** int(block_id // self.config.rescale_every))
+        self.layers_are_rescaled = not self.layers_are_rescaled
 
     def load_weights_from_hf(self, model_id):
         """
