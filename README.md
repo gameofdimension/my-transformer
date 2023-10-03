@@ -15,7 +15,7 @@
 
 | |位置信息融入|normalization|激活函数|注意力机制|
 |---|---|---|---|---|
-|[gpt2](model/gpt2.py)|可学习绝对位置编码|LayerNorm|gelu_new|单向自注意力|
+|[gpt2](model/gpt2.py)|可学习绝对位置编码|LayerNorm|gelu|单向自注意力|
 |[llama](model/llama.py)|RoPE|RMSNorm|silu|单向自注意力|
 |[baichuan13b](model/baichuan13b.py)|Alibi|RMSNorm|silu|单向自注意力|
 |[chatglm](model/chatglm.py)|RoPE, 2d position|post LayerNorm|gelu|前缀部分双向注意力，生成部分单向注意力|
