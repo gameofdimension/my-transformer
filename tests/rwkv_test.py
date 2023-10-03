@@ -24,6 +24,7 @@ class ModelTest(unittest.TestCase):
 
         self.assertEqual(len(ref_hidden_states), len(hidden_states))
         for a, b in zip(ref_hidden_states, hidden_states):
+            print(torch.max(torch.abs(a - b)).item())
             self.assertEqual(a.size(), b.size())
             self.assertTrue(torch.allclose(a, b, atol=1e-3))
 
@@ -44,5 +45,6 @@ class ModelTest(unittest.TestCase):
 
         self.assertEqual(len(ref_hidden_states), len(hidden_states))
         for a, b in zip(ref_hidden_states, hidden_states):
+            print(torch.max(torch.abs(a - b)).item())
             self.assertEqual(a.size(), b.size())
             self.assertTrue(torch.allclose(a, b, atol=1e-3))

@@ -51,18 +51,22 @@ class Memory(nn.Module):
 
     def forward(self, key: torch.Tensor, value: torch.Tensor):
         batch_size, seq_length, hidden_size = key.size()
-        importance = torch.exp(key)
-        time_decay = -torch.exp(self.time_decay)
+        u = self.time_first
+        w = -torch.exp(self.time_decay)
 
         lst = []
         a = torch.zeros(batch_size, hidden_size)
         b = torch.zeros(batch_size, hidden_size)
-        for i in range(seq_length):
-            w = torch.exp(self.time_first) * importance[:, i]
-            vt = value[:, i]
-            wkv = (a + w * vt) / (b + w)
-            a = torch.exp(time_decay) * a + importance[:, i] * vt
-            b = torch.exp(time_decay) * b + importance[:, i]
+        for t in range(seq_length):
+            kt = key[:, t]
+
+            # me1 = torch.max(me2, u + kt)
+            wt = torch.exp(u + kt)
+            vt = value[:, t]
+
+            wkv = (a + wt * vt) / (b + wt)
+            a = torch.exp(w) * a + torch.exp(kt) * vt
+            b = torch.exp(w) * b + torch.exp(kt)
 
             lst.append(wkv.unsqueeze(1))
         return torch.concat(lst, dim=1)
