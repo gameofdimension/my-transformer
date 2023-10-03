@@ -57,15 +57,24 @@ class Memory(nn.Module):
         lst = []
         a = torch.zeros(batch_size, hidden_size)
         b = torch.zeros(batch_size, hidden_size)
+        exponent = torch.zeros(batch_size, hidden_size) - float('inf')
         for t in range(seq_length):
             kt = key[:, t]
 
-            wt = torch.exp(u + kt)
+            # compute wkv
+            max_exponent = torch.max(exponent, u + kt)
+            wt = torch.exp(u + kt - max_exponent)
             vt = value[:, t]
+            scale = torch.exp(exponent - max_exponent)
+            wkv = (a * scale + wt * vt) / (b * scale + wt)
 
-            wkv = (a + wt * vt) / (b + wt)
-            a = torch.exp(w) * a + torch.exp(kt) * vt
-            b = torch.exp(w) * b + torch.exp(kt)
+            # update state
+            max_exponent = torch.max(exponent + w, kt)
+            scale1 = torch.exp(exponent + w - max_exponent)
+            scale2 = torch.exp(kt - max_exponent)
+            a = scale1 * a + scale2 * vt
+            b = scale1 * b + scale2
+            exponent = max_exponent
 
             lst.append(wkv.unsqueeze(1))
         return torch.concat(lst, dim=1)
