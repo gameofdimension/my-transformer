@@ -60,7 +60,6 @@ class Memory(nn.Module):
         for t in range(seq_length):
             kt = key[:, t]
 
-            # me1 = torch.max(me2, u + kt)
             wt = torch.exp(u + kt)
             vt = value[:, t]
 
