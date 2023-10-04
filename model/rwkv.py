@@ -56,8 +56,8 @@ class Memory(nn.Module):
 
         lst = []
         a = torch.zeros(batch_size, hidden_size)
-        b = torch.zeros(batch_size, hidden_size)
-        exponent = torch.zeros(batch_size, hidden_size) - float('inf')
+        b = torch.zeros_like(a)
+        exponent = torch.full_like(a, -float('inf'))
         for t in range(seq_length):
             kt = key[:, t]
 
