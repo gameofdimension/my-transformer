@@ -2,7 +2,7 @@ import unittest
 
 import torch
 
-from model.common import vectorized_attention, vectorized_attention_v2
+from flash.standard import vectorized_attention, vectorized_attention_v2
 
 
 class AttentionTest(unittest.TestCase):
