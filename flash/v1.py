@@ -103,48 +103,71 @@ class FlashAttentionV1(nn.Module):
         assert query.size() == key.size() == value.size()
         n, d = query.size()
 
-        bc = math.ceil(self.sram_size / (4 * d))
-        br = min(bc, d)
-        tc = math.ceil(n / bc)
-        tr = math.ceil(n / br)
+        block_kv = math.ceil(self.sram_size / (4 * d))
+        block_q = min(block_kv, d)
 
-        big_o = torch.zeros((n, d))
-        little_l = torch.zeros((n,))
-        little_m = torch.full((n,), -float('inf'))
+        step_kv = math.ceil(n / block_kv)
+        step_q = math.ceil(n / block_q)
+
+        numerator = torch.zeros((n, d))
+        denominator = torch.zeros((n, 1))
+        expo_max = torch.full((n, 1), -float('inf'))
 
         def key_block(idx: int):
-            assert 0 <= idx < tc
-            return key[idx * bc:(idx + 1) * bc, :]
+            assert 0 <= idx < step_kv
+            return key[idx * block_kv:(idx + 1) * block_kv, :]
 
         def value_block(idx: int):
-            assert 0 <= idx < tc
-            return value[idx * bc:(idx + 1) * bc, :]
+            assert 0 <= idx < step_kv
+            return value[idx * block_kv:(idx + 1) * block_kv, :]
 
         def query_block(idx: int):
-            assert 0 <= idx < tr
-            return query[idx * br:(idx + 1) * br, :]
+            assert 0 <= idx < step_q
+            return query[idx * block_q:(idx + 1) * block_q, :]
 
-        def o_block(idx: int):
-            assert 0 <= idx < tr
-            return big_o[idx * br:(idx + 1) * br, :]
+        def get_numerator_block(idx: int):
+            assert 0 <= idx < step_q
+            return numerator[idx * block_q:(idx + 1) * block_q, :]
 
-        def l_block(idx: int):
-            assert 0 <= idx < tr
-            return little_l[idx * br:(idx + 1) * br]
+        def set_numerator_block(idx: int, val: torch.Tensor):
+            assert 0 <= idx < step_q
+            numerator[idx * block_q:(idx + 1) * block_q, :] = val
 
-        def m_block(idx: int):
-            assert 0 <= idx < tr
-            return little_m[idx * br:(idx + 1) * br]
+        def get_denominator_block(idx: int):
+            assert 0 <= idx < step_q
+            return denominator[idx * block_q:(idx + 1) * block_q, :]
 
-        for j in range(tc):
+        def set_denominator_block(idx: int, val: torch.Tensor):
+            assert 0 <= idx < step_q
+            denominator[idx * block_q:(idx + 1) * block_q, :] = val
+
+        def get_emax_block(idx: int):
+            assert 0 <= idx < step_q
+            return expo_max[idx * block_q:(idx + 1) * block_q, :]
+
+        def set_emax_block(idx: int, val: torch.Tensor):
+            assert 0 <= idx < step_q
+            expo_max[idx * block_q:(idx + 1) * block_q, :] = val
+
+        for j in range(step_kv):
             k, v = key_block(j), value_block(j)
-            for i in range(tr):
-                q, o, li, mi = query_block(i), o_block(i), l_block(i), m_block(i)
-                s = q @ k.T
+            for i in range(step_q):
+                q = query_block(i)
+                s = q @ k.T / math.sqrt(d)
 
-                mb = torch.max(s, dim=1, keepdim=True).values
-                pb = torch.exp(s - mb)
-                lb = torch.sum(pb, dim=1, keepdim=True)
+                ni, di, emi = get_numerator_block(i), get_denominator_block(i), get_emax_block(i)
+                emb = torch.max(s, dim=1, keepdim=True).values
+                pb = torch.exp(s - emb)
+                db = torch.sum(pb, dim=1, keepdim=True)
 
-                mtmp = torch.maximum(mb, mi)
-                ltmp = torch.exp(mi - mtmp) * li + torch.exp(mb - mtmp) * lb
+                em_tmp = torch.maximum(emb, emi)
+                d_tmp = torch.exp(emi - em_tmp) * di + torch.exp(emb - em_tmp) * db
+                n_tmp = torch.exp(emi - em_tmp) * ni + torch.exp(emb - em_tmp) * (pb @ v)
+
+                set_numerator_block(i, n_tmp)
+                set_denominator_block(i, d_tmp)
+                set_emax_block(i, em_tmp)
+
+        return numerator / denominator
+
+
