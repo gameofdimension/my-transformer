@@ -4,7 +4,7 @@ import torch
 from torch import nn
 
 
-class FlashAttentionV1(nn.Module):
+class FlashAttentionV2(nn.Module):
     def __init__(self, sram_size: int = 100_000):
         super().__init__()
         self.sram_size = sram_size
@@ -60,23 +60,24 @@ class FlashAttentionV1(nn.Module):
             assert 0 <= idx < step_q
             expo_max[idx * block_q:(idx + 1) * block_q, :] = val
 
-        for j in range(step_kv):
-            k, v = key_block(j), value_block(j)
-            for i in range(step_q):
-                q = query_block(i)
+        for i in range(step_q):
+            q = query_block(i)
+            ni, di, emi = get_numerator_block(i), get_denominator_block(i), get_emax_block(i)
+            for j in range(step_kv):
+                k, v = key_block(j), value_block(j)
                 s = q @ k.T / math.sqrt(d)
 
-                ni, di, emi = get_numerator_block(i), get_denominator_block(i), get_emax_block(i)
                 emb = torch.max(s, dim=1, keepdim=True).values
                 pb = torch.exp(s - emb)
                 db = torch.sum(pb, dim=1, keepdim=True)
 
                 em_tmp = torch.maximum(emb, emi)
-                d_tmp = torch.exp(emi - em_tmp) * di + torch.exp(emb - em_tmp) * db
-                n_tmp = torch.exp(emi - em_tmp) * ni + torch.exp(emb - em_tmp) * (pb @ v)
+                di = torch.exp(emi - em_tmp) * di + torch.exp(emb - em_tmp) * db
+                ni = torch.exp(emi - em_tmp) * ni + torch.exp(emb - em_tmp) * (pb @ v)
+                emi = em_tmp
 
-                set_numerator_block(i, n_tmp)
-                set_denominator_block(i, d_tmp)
-                set_emax_block(i, em_tmp)
+            set_numerator_block(i, ni)
+            set_denominator_block(i, di)
+            set_emax_block(i, emi)
 
         return numerator / denominator

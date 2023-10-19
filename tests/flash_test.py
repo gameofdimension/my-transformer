@@ -2,10 +2,12 @@ import unittest
 
 import torch
 
-from flash.v1 import incremental_softmax_weighted_sum, incremental_softmax_weighted_sum_2d, FlashAttentionV1
+from flash.incremental import incremental_softmax_weighted_sum, incremental_softmax_weighted_sum_2d
+from flash.v1 import FlashAttentionV1
+from flash.v2 import FlashAttentionV2
 
 
-class AttentionTest(unittest.TestCase):
+class FlashAttentionV1Test(unittest.TestCase):
     def test_incremental_softmax(self):
         score = torch.randn((17,))
         value = torch.randn((17, 5))
@@ -21,10 +23,12 @@ class AttentionTest(unittest.TestCase):
         gold = torch.softmax(score, dim=-1) @ value
         assert gold.size() == (8, 6)
 
-        inc = incremental_softmax_weighted_sum_2d(score, value, 5)
-        self.assertTrue(torch.allclose(gold, inc))
+        inc1, inc2 = incremental_softmax_weighted_sum_2d(score, value, 5)
+        self.assertTrue(torch.allclose(gold, inc1))
 
-    def test_incremental_softmax_weighted_sum_2d_1(self):
+        self.assertTrue(torch.allclose(gold, inc2))
+
+    def test_incremental_softmax_weighted_sum_1(self):
         score = torch.randn((8, 17))
         value = torch.randn((17, 6))
         gold = torch.softmax(score, dim=-1) @ value
@@ -36,6 +40,16 @@ class AttentionTest(unittest.TestCase):
 
     def test_v1(self):
         fl = FlashAttentionV1()
+        q = torch.randn((730, 64))
+        k = torch.randn((730, 64))
+        v = torch.randn((730, 64))
+
+        out = fl(q, k, v)
+        gold = torch.nn.functional.scaled_dot_product_attention(q, k, v)
+        self.assertTrue(torch.allclose(gold, out, atol=1e-6))
+
+    def test_v2(self):
+        fl = FlashAttentionV2()
         q = torch.randn((730, 64))
         k = torch.randn((730, 64))
         v = torch.randn((730, 64))
