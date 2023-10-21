@@ -19,25 +19,25 @@ class FlashAttentionV1Test(unittest.TestCase):
         self.assertTrue(torch.allclose(gold, torch.tensor(inc)))
 
     def test_incremental_softmax_weighted_sum_2d(self):
-        score = torch.randn((8, 17))
-        value = torch.randn((17, 6))
-        gold = torch.softmax(score, dim=-1) @ value
+        score = np.random.randn(8, 17)
+        value = np.random.randn(17, 6)
+        gold = torch.softmax(torch.tensor(score), dim=-1) @ torch.tensor(value)
         assert gold.size() == (8, 6)
 
         inc1, inc2 = incremental_softmax_weighted_sum_2d(score, value, 5)
-        self.assertTrue(torch.allclose(gold, inc1))
+        self.assertTrue(torch.allclose(gold, torch.tensor(inc1)))
 
-        self.assertTrue(torch.allclose(gold, inc2))
+        self.assertTrue(torch.allclose(gold, torch.tensor(inc2)))
 
     def test_incremental_softmax_weighted_sum_1(self):
-        score = torch.randn((8, 17))
-        value = torch.randn((17, 6))
-        gold = torch.softmax(score, dim=-1) @ value
+        score = np.random.randn(8, 17)
+        value = np.random.randn(17, 6)
+        gold = torch.softmax(torch.tensor(score), dim=-1) @ torch.tensor(value)
         assert gold.size() == (8, 6)
 
-        for i in range(score.size(0)):
+        for i in range(score.shape[0]):
             inc = incremental_softmax_weighted_sum(score[i], value, 5)
-            self.assertTrue(torch.allclose(gold[i], inc))
+            self.assertTrue(torch.allclose(gold[i], torch.tensor(inc)))
 
     def test_v1(self):
         fl = FlashAttentionV1()
