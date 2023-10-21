@@ -10,13 +10,13 @@ from flash.v2 import FlashAttentionV2
 
 class FlashAttentionV1Test(unittest.TestCase):
     def test_incremental_softmax(self):
-        score = torch.randn((17,))
-        value = torch.randn((17, 5))
-        gold = torch.softmax(score, dim=-1) @ value
+        score = np.random.randn(17, )
+        value = np.random.randn(17, 5)
+        gold = torch.softmax(torch.tensor(score), dim=-1) @ torch.tensor(value)
         assert gold.size() == (5,)
 
         inc = incremental_softmax_weighted_sum(score, value, 5)
-        self.assertTrue(torch.allclose(gold, inc))
+        self.assertTrue(torch.allclose(gold, torch.tensor(inc)))
 
     def test_incremental_softmax_weighted_sum_2d(self):
         score = torch.randn((8, 17))
