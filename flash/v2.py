@@ -1,18 +1,17 @@
 import math
 
-import torch
-from torch import nn
+import numpy as np
 
 
-class FlashAttentionV2(nn.Module):
+class FlashAttentionV2:
     def __init__(self, sram_size: int = 100_000):
         super().__init__()
         self.sram_size = sram_size
 
-    def forward(self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor):
-        assert len(query.size()) == 2
-        assert query.size() == key.size() == value.size()
-        n, d = query.size()
+    def forward(self, query: np.ndarray, key: np.ndarray, value: np.ndarray):
+        assert query.ndim == 2
+        assert query.shape == key.shape == value.shape
+        n, d = query.shape
 
         block_kv = math.ceil(self.sram_size / (4 * d))
         block_q = min(block_kv, d)
@@ -20,9 +19,9 @@ class FlashAttentionV2(nn.Module):
         step_kv = math.ceil(n / block_kv)
         step_q = math.ceil(n / block_q)
 
-        numerator = torch.zeros((n, d))
-        denominator = torch.zeros((n, 1))
-        expo_max = torch.full((n, 1), -float('inf'))
+        numerator = np.zeros((n, d))
+        denominator = np.zeros((n, 1))
+        expo_max = np.full((n, 1), -float('inf'))
 
         def key_block(idx: int):
             assert 0 <= idx < step_kv
@@ -40,7 +39,7 @@ class FlashAttentionV2(nn.Module):
             assert 0 <= idx < step_q
             return numerator[idx * block_q:(idx + 1) * block_q, :]
 
-        def set_numerator_block(idx: int, val: torch.Tensor):
+        def set_numerator_block(idx: int, val: np.ndarray):
             assert 0 <= idx < step_q
             numerator[idx * block_q:(idx + 1) * block_q, :] = val
 
@@ -48,7 +47,7 @@ class FlashAttentionV2(nn.Module):
             assert 0 <= idx < step_q
             return denominator[idx * block_q:(idx + 1) * block_q, :]
 
-        def set_denominator_block(idx: int, val: torch.Tensor):
+        def set_denominator_block(idx: int, val: np.ndarray):
             assert 0 <= idx < step_q
             denominator[idx * block_q:(idx + 1) * block_q, :] = val
 
@@ -56,7 +55,7 @@ class FlashAttentionV2(nn.Module):
             assert 0 <= idx < step_q
             return expo_max[idx * block_q:(idx + 1) * block_q, :]
 
-        def set_emax_block(idx: int, val: torch.Tensor):
+        def set_emax_block(idx: int, val: np.ndarray):
             assert 0 <= idx < step_q
             expo_max[idx * block_q:(idx + 1) * block_q, :] = val
 
@@ -67,13 +66,13 @@ class FlashAttentionV2(nn.Module):
                 k, v = key_block(j), value_block(j)
                 s = q @ k.T / math.sqrt(d)
 
-                emb = s.amax(dim=1, keepdim=True)
-                pb = torch.exp(s - emb)
-                db = torch.sum(pb, dim=1, keepdim=True)
+                emb = s.max(axis=1, keepdims=True)
+                pb = np.exp(s - emb)
+                db = np.sum(pb, axis=1, keepdims=True)
 
-                em_tmp = torch.maximum(emb, emi)
-                di = torch.exp(emi - em_tmp) * di + torch.exp(emb - em_tmp) * db
-                ni = torch.exp(emi - em_tmp) * ni + torch.exp(emb - em_tmp) * (pb @ v)
+                em_tmp = np.maximum(emb, emi)
+                di = np.exp(emi - em_tmp) * di + np.exp(emb - em_tmp) * db
+                ni = np.exp(emi - em_tmp) * ni + np.exp(emb - em_tmp) * (pb @ v)
                 emi = em_tmp
 
             set_numerator_block(i, ni)

@@ -1,5 +1,6 @@
 import unittest
 
+import numpy as np
 import torch
 
 from flash.incremental import incremental_softmax_weighted_sum, incremental_softmax_weighted_sum_2d
@@ -50,10 +51,11 @@ class FlashAttentionV1Test(unittest.TestCase):
 
     def test_v2(self):
         fl = FlashAttentionV2()
-        q = torch.randn((730, 64))
-        k = torch.randn((730, 64))
-        v = torch.randn((730, 64))
+        q = np.random.randn(730, 64)
+        k = np.random.randn(730, 64)
+        v = np.random.randn(730, 64)
 
-        out = fl(q, k, v)
-        gold = torch.nn.functional.scaled_dot_product_attention(q, k, v)
-        self.assertTrue(torch.allclose(gold, out, atol=1e-6))
+        out = fl.forward(q, k, v)
+        gold = torch.nn.functional.scaled_dot_product_attention(
+            torch.tensor(q), torch.tensor(k), torch.tensor(v))
+        self.assertTrue(torch.allclose(gold, torch.tensor(out), atol=1e-6))
