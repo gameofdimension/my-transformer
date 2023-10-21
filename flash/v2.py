@@ -67,7 +67,7 @@ class FlashAttentionV2(nn.Module):
                 k, v = key_block(j), value_block(j)
                 s = q @ k.T / math.sqrt(d)
 
-                emb = torch.max(s, dim=1, keepdim=True).values
+                emb = s.amax(dim=1, keepdim=True)
                 pb = torch.exp(s - emb)
                 db = torch.sum(pb, dim=1, keepdim=True)
 

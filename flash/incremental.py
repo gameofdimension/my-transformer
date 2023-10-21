@@ -53,7 +53,7 @@ def incremental_softmax_weighted_sum_2d(score: torch.Tensor, value: torch.Tensor
     def compute_one_block(vec: torch.Tensor, val: torch.Tensor):
         assert 0 < vec.size(1) <= block_size
         assert vec.size(1) == val.size(0)
-        maxv = torch.max(vec, dim=1, keepdim=True).values
+        maxv = vec.amax(dim=1, keepdim=True)
 
         vec = vec - maxv
         exp_val = torch.exp(vec)
