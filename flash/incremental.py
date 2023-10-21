@@ -47,12 +47,12 @@ def incremental_softmax_weighted_sum_2d(score: np.ndarray, value: np.ndarray, bl
     :param block_size:
     :return:
     """
-    assert len(score.size()) == len(value.size()) == 2
-    assert score.size(1) == value.size(0)
+    assert score.ndim == value.ndim == 2
+    assert score.shape[1] == value.shape[0]
 
     def compute_one_block(vec: np.ndarray, val: np.ndarray):
-        assert 0 < vec.size(1) <= block_size
-        assert vec.size(1) == val.size(0)
+        assert 0 < vec.shape[1] <= block_size
+        assert vec.shape[1] == val.shape[0]
         maxv = vec.max(axis=1, keepdims=True)
 
         vec = vec - maxv
@@ -71,13 +71,13 @@ def incremental_softmax_weighted_sum_2d(score: np.ndarray, value: np.ndarray, bl
         return maxv, v1 + v2, total
 
     def iterative_merge():
-        m = np.full((score.size(0), 1), -float('inf'))
-        e = np.zeros((score.size(0), value.size(1)))
-        t = np.zeros((score.size(0), 1))
+        m = np.full((score.shape[0], 1), -float('inf'))
+        e = np.zeros((score.shape[0], value.shape[1]))
+        t = np.zeros((score.shape[0], 1))
 
         i = 0
         while True:
-            if i + block_size >= score.size(1):
+            if i + block_size >= score.shape[1]:
                 nm, ne, nt = compute_one_block(score[:, i:], value[i:, :])
                 _, e, t = merge_two_block(e, t, m, ne, nt, nm)
                 return e / t
@@ -88,15 +88,15 @@ def incremental_softmax_weighted_sum_2d(score: np.ndarray, value: np.ndarray, bl
 
     def merge_all_at_once():
         lst = []
-        maxm = np.full((score.size(0), 1), -float('inf'))
-        for i in range(0, score.size(1), block_size):
+        maxm = np.full((score.shape[0], 1), -float('inf'))
+        for i in range(0, score.shape[1], block_size):
             m, n, d = compute_one_block(score[:, i:i + block_size], value[i:i + block_size, :])
             lst.append((m, n, d))
-            assert maxm.size() == m.size()
+            assert maxm.shape == m.shape
             maxm = np.maximum(maxm, m)
 
-        ns = np.zeros((score.size(0), value.size(1)))
-        ds = np.zeros((score.size(0), 1))
+        ns = np.zeros((score.shape[0], value.shape[1]))
+        ds = np.zeros((score.shape[0], 1))
         for m, n, d in lst:
             ns += np.exp(m - maxm) * n
             ds += np.exp(m - maxm) * d
