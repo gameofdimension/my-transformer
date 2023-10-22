@@ -79,4 +79,4 @@ class FlashAttentionV2:
             set_denominator_block(i, di)
             set_emax_block(i, emi)
 
-        return numerator / denominator
+        return numerator / denominator, denominator

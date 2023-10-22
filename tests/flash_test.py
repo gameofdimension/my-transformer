@@ -56,7 +56,7 @@ class FlashAttentionV1Test(unittest.TestCase):
         k = np.random.randn(730, 64)
         v = np.random.randn(730, 64)
 
-        out = fl.forward(q, k, v)
+        out, denominator = fl.forward(q, k, v)
         gold = torch.nn.functional.scaled_dot_product_attention(
             torch.tensor(q), torch.tensor(k), torch.tensor(v))
         self.assertTrue(torch.allclose(gold, torch.tensor(out), atol=1e-6))
