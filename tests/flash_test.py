@@ -60,3 +60,4 @@ class FlashAttentionV1Test(unittest.TestCase):
         gold = torch.nn.functional.scaled_dot_product_attention(
             torch.tensor(q), torch.tensor(k), torch.tensor(v))
         self.assertTrue(torch.allclose(gold, torch.tensor(out), atol=1e-6))
+        self.assertTrue(all(denominator <= q.shape[0]))
