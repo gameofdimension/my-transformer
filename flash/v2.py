@@ -82,9 +82,9 @@ class FlashAttentionV2:
         return numerator / denominator, np.log(denominator) + expo_max
 
     def backward(self, query: np.ndarray, key: np.ndarray, value: np.ndarray,
-                 dout: np.ndarray, logsumexp: np.ndarray):
-        assert query.ndim == key.ndim == value.ndim == dout.ndim == logsumexp.ndim == 2
-        assert query.shape == key.shape == value.shape == dout.shape
+                 out: np.ndarray, dout: np.ndarray, logsumexp: np.ndarray):
+        assert query.ndim == key.ndim == value.ndim == dout.ndim == logsumexp.ndim == out.ndim == 2
+        assert query.shape == key.shape == value.shape == dout.shape == out.shape
         assert logsumexp.shape[1] == 1
 
         n, d = query.shape
@@ -99,6 +99,9 @@ class FlashAttentionV2:
         dquery = np.zeros_like(query)
         dkey = np.zeros_like(key)
         dvalue = np.zeros_like(value)
+
+        # 可以高效分块计算，这里简单起见，用了向量式计算
+        dodoto = np.sum(out * dout, axis=1, keepdims=True)
 
         def key_block(idx: int):
             assert 0 <= idx < step_kv
@@ -124,6 +127,10 @@ class FlashAttentionV2:
             assert 0 <= idx < step_q
             dquery[idx * block_q:(idx + 1) * block_q, :] += delta
 
+        def dodoto_block(idx: int):
+            assert 0 <= idx < step_q
+            return dodoto[idx * block_q:(idx + 1) * block_q, :]
+
         def dout_block(idx: int):
             assert 0 <= idx < step_q
             return dout[idx * block_q:(idx + 1) * block_q, :]
@@ -136,6 +143,7 @@ class FlashAttentionV2:
             q = query_block(i)
             do = dout_block(i)
             lse = get_logsumexp_block(i)
+            ddt = dodoto_block(i)
             for j in range(step_kv):
                 k, v = key_block(j), value_block(j)
                 s = q @ k.T / math.sqrt(d)
@@ -144,39 +152,12 @@ class FlashAttentionV2:
                 dp = do @ v.T
                 dv = p.T @ do
 
-                ds = self.dsoftmax(dp, p)
-                dq = ds @ k
-                dk = ds.T @ q
+                ds = (dp - ddt) * p
+                dq = ds @ k / math.sqrt(d)
+                dk = ds.T @ q / math.sqrt(d)
 
                 update_dquery(i, dq)
                 update_dkey(j, dk)
                 update_dvalue(j, dv)
 
         return dquery, dkey, dvalue
-
-    def dsoftmax(self, dprob: np.ndarray, prob: np.ndarray):
-        assert dprob.shape == prob.shape
-        assert dprob.ndim == 2
-        r, c = dprob.shape
-
-        dscore = np.zeros_like(dprob)
-        for i in range(r):
-            dp = dprob[i, :]
-            p = prob[i, :]
-            dpds = np.diag(p) - p.reshape(-1, 1) @ p.reshape(1, -1)
-            ds = dp @ dpds
-
-            dscore[i, :] = ds
-        return dscore
-
-
-if __name__ == '__main__':
-    fl = FlashAttentionV2()
-    q = np.random.randn(730, 64)
-    k = np.random.randn(730, 64)
-    v = np.random.randn(730, 64)
-
-    out, logsumexp = fl.forward(q, k, v)
-    dout = np.random.randn(730, 64)
-
-    dq, dk, dv = fl.backward(q, k, v, dout, logsumexp)
