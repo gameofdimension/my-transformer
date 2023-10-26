@@ -87,31 +87,27 @@ $(p_1,p_2,\cdots,p_n)=P=softmax(s_1,s_2,\cdots,s_n)$
 
 我们有
 
-$(ds_1,ds_2,\cdots,ds_n)=$
-
-$dS=dP\cdot\frac{dP}{dS}=$
-
-$(dp_1,dp_2,\cdots,dp_n)\cdot\begin{bmatrix}
+```math
+(ds_1,ds_2,\cdots,ds_n)=dS=dP\cdot\frac{dP}{dS}=(dp_1,dp_2,\cdots,dp_n)\cdot\begin{bmatrix}
     \frac{dp_1}{ds_1} & \frac{dp_1}{ds_2}  & \dots  & \frac{dp_1}{ds_n} \\
     \frac{dp_2}{ds_1} & \frac{dp_2}{ds_2}  & \dots  & \frac{dp_2}{ds_n} \\
     \vdots & \vdots  & \ddots & \vdots \\
     \frac{dp_n}{ds_1} & \frac{dp_n}{ds_2}  & \dots  & \frac{dp_n}{ds_n}
-\end{bmatrix}$
+\end{bmatrix}
+```
 
 初看起来，要分块式的计算 $dS$ 是不可能了。
 但是论文中有个很精彩的变换，突破了以上困境，简述如下：计算出每个 $\frac{dp_i}{ds_j}$，然后我们有
 
-$dS=dP\cdot
+```math
+dS=dP\cdot
 \begin{bmatrix}
     p_1-p_1 p_1 & -p_1 p_2  & \dots  & -p_1 p_n \\
     -p_2 p_1 & p_2-p_2 p_2  & \dots  & -p_2 p_n \\
     \vdots & \vdots  & \ddots & \vdots \\
     -p_n p_1 & -p_n p_2  & \dots  & p_n-p_n p_n
-\end{bmatrix}=$
-
-$dP \cdot \{diag(P)-P^TP\}=$
-
-$dP\circ P-(dP\cdot P^T)P$
+\end{bmatrix}=dP \cdot \{diag(P)-P^TP\}=dP\circ P-(dP\cdot P^T)P
+```
 
 其中 $\circ$ 表示逐点相乘。同时可以知道 $dP\cdot P^T$ 为一个标量，因而是可以事先计算（分块增量式）出来的，这样有了分块的 $P_{i..j},dP_{i..j}$，就可以计算出分块的 $dS_{i..j}$ 了。
 其实 $dP\cdot P^T$ 还可以进一步推导，因为 $O=PV,dP=dO\cdot V^T$ 我们有 $dP\cdot P^T=dO\cdot V^T\cdot P^T=dO\cdot (PV)^T=dO\cdot O^T$。显然 $dO\cdot O^T$ 的计算量更小，这也正是论文中所采用的方法。
