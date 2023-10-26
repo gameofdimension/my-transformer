@@ -27,29 +27,35 @@ $[\frac{e^{s_1}}{\sum_i{e^{s_i}}},\frac{e^{s_2}}{\sum_i{e^{s_i}}},\cdots,\frac{e
 ### 前向分块计算
 给定 $K,V$ 的前提下， $Q$ 中不同行 $Q_i$ 对应的计算互不依赖，所以不妨从 $Q\in\mathbb{R}^{1\times d}$ 进行思考， $Q$ 和 $K$ 点乘得到分数向量 $\{s_i\}$ 然后 softmax 得到一个离散概率分布 $p_i$，以其为 weight 对 $V_i$ 做加权求和
 
-\$O=\sum\_{i=1}^n{p_i\cdot V_i}=$
+```math
+O=\sum_{i=1}^n{p_i\cdot V_i}=
 
-$\sum_{i=1}^n\frac{e^{Q_1K_i^T}}{\sum_{j=1}^n e^{Q_1K_j^T}}\cdot V_i=$
+\sum_{i=1}^n\frac{e^{Q_1K_i^T}}{\sum_j e^{Q_1K_j^T}} \cdot V_i=
 
-$\frac{\sum_{i=1}^ne^{Q_1K_i^T}\cdot V_i}{\sum_{i=1}^n e^{Q_1K_i^T}}=$
+\frac{\sum_i e^{Q_1K_i^T}\cdot V_i}{\sum_i e^{Q_1K_i^T}}=
 
-$\frac{\sum_{i=1}^ne^{s_i}\cdot V_i}{\sum_{i=1}^ne^{s_i}}=$
+\frac{\sum_i e^{s_i}\cdot V_i}{\sum_i e^{s_i}}=
 
-$\frac{\sum_{i=1}^ne^{s_i-m}\cdot V_i}{\sum_{i=1}^ne^{s_i-m}}=$
+\frac{\sum_i e^{s_i-m}\cdot V_i}{\sum_i e^{s_i-m}}=
 
-$\frac{numerator}{denominator}$
+\frac{numerator}{denominator}
+```
 
 其中 $s_i=Q_1 K_i^T,m=\max_i{s_i}$。有了这个公式，迭代式计算的代码就很好写了，分别累加分子和分母，最后做一个除法。临时的累加结果内存占用都很小，达到了节省内存的目的。flash attention 在分块内采用了高效的向量和矩阵计算，分块之间则用累加的思想进行合并，唯一要注意的是上面提到的数值稳定性，需正确地维护当前见过的最大的 $s_i$。
 
 以下展示下两个分块计算 $a..b$ 和 $c..d$ 的结果如何合并：
 
-$\frac{\sum_{i=a}^be^{s_i}\cdot V_i+\sum_{i=c}^de^{s_i}\cdot V_i}{\sum_{i=a}^be^{s_i}+\sum_{i=c}^de^{s_i}}=$
+```math
+\frac{\sum_{i=a..b}e^{s_i}\cdot V_i+\sum_{i=c..d}e^{s_i}\cdot V_i}{\sum_{i=a..b}e^{s_i}+\sum_{i=c..d}e^{s_i}}=
 
-$\frac{e^{m_1}\sum_{i=a}^be^{s_i-m_1}\cdot V_i+e^{m_2}\sum_{i=c}^de^{s_i-m_2}\cdot V_i}{e^{m_1}\sum_{i=a}^be^{s_i-m_1}+e^{m_2}\sum_{i=c}^de^{s_i-m_2}}=$
+\frac{e^{m_1}\sum_{i=a..b}e^{s_i-m_1}\cdot V_i+e^{m_2}\sum_{i=c..d}e^{s_i-m_2}\cdot V_i}{e^{m_1}\sum_{i=a..b}e^{s_i-m_1}+e^{m_2}\sum_{i=c..d}e^{s_i-m_2}}=
+```
 
-$\frac{e^{m_1-m}\sum_{i=a}^be^{s_i-m_1}\cdot V_i+e^{m_2-m}\sum_{i=c}^de^{s_i-m_2}\cdot V_i}{e^{m_1-m}\sum_{i=a}^be^{s_i-m_1}+e^{m_2-m}\sum_{i=c}^de^{s_i-m_2}}=$
+```math
+\frac{e^{m_1-m}\sum_{i=a..b}e^{s_i-m_1}\cdot V_i+e^{m_2-m}\sum_{i=c..d}e^{s_i-m_2}\cdot V_i}{e^{m_1-m}\sum_{i=a..b}e^{s_i-m_1}+e^{m_2-m}\sum_{i=c..d}e^{s_i-m_2}}=
 
-$\frac{e^{m_1-m}\cdot numerator_1+e^{m_2-m}\cdot numerator_2}{e^{m_1-m}\cdot denominator_1+e^{m_2-m}\cdot denominator_2}$
+\frac{e^{m_1-m}\cdot numerator_1+e^{m_2-m}\cdot numerator_2}{e^{m_1-m}\cdot denominator_1+e^{m_2-m}\cdot denominator_2}
+```
 
 其中 $m_1=\max_{i=a..b}(s_i),m_2=\max_{i=c..d}(s_i),m=\max(m_1,m_2)$，易知以上合并公式可以保持计算的数值稳定性。
 有了上面的铺垫，flash attention 团队最新的 flash decoding 工作就很好理解了：在 $K/V\$ 序列的维度分块并且并行计算，最后根据以上所述思路合并多块计算结果，实现难点也是落在了为了数值稳定性的最大指数的维护而已。
