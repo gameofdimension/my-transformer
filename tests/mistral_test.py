@@ -16,6 +16,7 @@ class ModelTest(unittest.TestCase):
         ref_config.num_hidden_layers = 8
         ref_config.sliding_window = 16
         ref_config.max_position_embeddings = 2048
+        ref_config.torch_dtype = "float32"
         ref_model = AutoModelForCausalLM.from_pretrained(
             ref_model_id,
             config=ref_config,
@@ -25,7 +26,7 @@ class ModelTest(unittest.TestCase):
         config = MistralConfig(
             num_hidden_layers=8,
             sliding_window=16,
-            max_position_embeddings=2048
+            max_position_embeddings=2048,
         )
         model = Model(config)
         model.load_weights_from_hf(ref_model, None)

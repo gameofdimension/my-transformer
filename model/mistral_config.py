@@ -15,4 +15,5 @@ class MistralConfig:
     sliding_window: int = 4096
     max_position_embeddings: int = 32768
     device: str = 'cuda'
+    torch_dtype: str = 'float32'
     rope_theta: float = 10000.0
