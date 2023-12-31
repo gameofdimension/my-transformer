@@ -64,7 +64,8 @@ def attention_func(
                 if alibi_get_m is None:
                     score = torch.dot(q, get_k(p, h)) / scale
                 else:
-                    score = torch.dot(q, get_k(p, h)) / scale + (p - tk) * alibi_get_m(h)
+                    score = torch.dot(q, get_k(p, h)) / \
+                        scale + (p - tk) * alibi_get_m(h)
                 scores.append(score)
                 v.append(get_v(p, h))
             final_value.append(weighted_sum(scores, v))
@@ -134,7 +135,8 @@ class Rotary:
                 else:
                     matrix[j, j] = math.cos(m * theta)
                     matrix[j, j + self.d // 2] = -math.sin(m * theta)
-                    matrix[j + self.d // 2, j + self.d // 2] = math.cos(m * theta)
+                    matrix[j + self.d // 2, j + self.d //
+                           2] = math.cos(m * theta)
                     matrix[j + self.d // 2, j] = math.sin(m * theta)
             self.matrix_lst.append(matrix)
 
