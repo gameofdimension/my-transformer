@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM
 from transformers.activations import ACT2FN
 
 from model.common import RMSNorm
@@ -75,8 +75,8 @@ def apply_rotary(vector: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor):
     assert cos.size(-1) == sin.size(-1) == vector.size(-1)
     assert cos.size(0) == sin.size(0) == vector.size(0)
     sl, bs, nh, d = vector.size()
-    cos = cos[:sl].view(sl, 1, 1, -1)
-    sin = sin[:sl].view(sl, 1, 1, -1)
+    cos = cos.view(sl, 1, 1, -1)
+    sin = sin.view(sl, 1, 1, -1)
     tmp = torch.cat([vector[..., d // 2:], vector[..., :d // 2]], dim=-1)
     return vector * cos + tmp * sin
 
@@ -117,7 +117,7 @@ class SelfAttention(nn.Module):
         bsz, q_len, hsz = hidden_states.size()
         assert hsz == self.hidden_size
         all_q = self.q_proj(hidden_states).view(
-            bsz, q_len, self.num_heads, self.head_dim).transpose(0, 1)
+            bsz, q_len, self.num_heads, self.head_dim).permute(1, 0, 2, 3)
         all_k = self.k_proj(hidden_states).view(
             bsz, q_len, self.num_key_value_heads, self.head_dim)\
             .repeat_interleave(self.num_key_value_groups, dim=2)\
@@ -125,16 +125,13 @@ class SelfAttention(nn.Module):
         all_v = self.v_proj(hidden_states).view(
             bsz, q_len, self.num_key_value_heads, self.head_dim)\
             .repeat_interleave(self.num_key_value_groups, dim=2)\
-            .permute(1, 0, 2, 3)
+            .permute(0, 2, 1, 3)
 
         attn_mask = self.attn_mask[:q_len, :q_len]
-        cos, sin = self.cos, self.sin
-        all_q = apply_rotary(
-            all_q, cos[:q_len], sin[:q_len]).permute(1, 2, 0, 3)
-        all_k = apply_rotary(
-            all_k, cos[:q_len], sin[:q_len]).permute(1, 2, 0, 3)
-        all_v = apply_rotary(
-            all_v, cos[:q_len], sin[:q_len]).permute(1, 2, 0, 3)
+        cos, sin = self.cos[:q_len], self.sin[:q_len]
+        all_q = apply_rotary(all_q, cos, sin).permute(1, 2, 0, 3)
+        all_k = apply_rotary(all_k, cos, sin).permute(1, 2, 0, 3)
+        # all_v = apply_rotary(all_v, cos, sin).permute(1, 2, 0, 3)
         out = nn.functional.scaled_dot_product_attention(
             query=all_q, key=all_k, value=all_v, attn_mask=attn_mask)
         out = out.permute(0, 2, 1, 3).reshape(bsz, q_len, -1)
@@ -149,7 +146,7 @@ class Block(nn.Module):
         super().__init__()
         self.hidden_size = config.hidden_size
 
-        self.attn = SelfAttention(
+        self.self_attn = SelfAttention(
             config=config, layer_idx=layer_idx,
             get_cos_sin=get_cos_sin, get_attn_mask=get_attn_mask)
 
@@ -162,7 +159,7 @@ class Block(nn.Module):
     def forward(self, hidden_states: torch.Tensor):
         residual = hidden_states
         hidden_states = self.input_layernorm(hidden_states)
-        hidden_states = self.attn(hidden_states)
+        hidden_states = self.self_attn(hidden_states)
         hidden_states = residual + hidden_states
 
         residual = hidden_states
@@ -173,12 +170,20 @@ class Block(nn.Module):
         return hidden_states
 
 
+def name_mapping(param: str):
+    out = {
+        "embed_tokens.weight": "model.embed_tokens.weight",
+        "final_norm.weight": "model.norm.weight",
+    }
+    if param in out:
+        return out[param]
+    return "model."+param
+
+
 class Model(nn.Module):
     def __init__(self, config: MistralConfig):
         super().__init__()
-        self.padding_idx = config.pad_token_id if hasattr(
-            config, "pad_token_id") else None
-
+        self.padding_idx = getattr(config, "pad_token_id", None)
         self.embed_tokens = nn.Embedding(
             config.vocab_size, config.hidden_size, self.padding_idx)
 
@@ -205,21 +210,18 @@ class Model(nn.Module):
             layers_output.append(hidden_states.detach())
         return self.final_norm(hidden_states), layers_output
 
+    def load_weights_from_hf(self, model_id):
+        """
+        :return:
+        """
+        # model_id = 'mistralai/Mistral-7B-v0.1'
+        ref_model = AutoModelForCausalLM.from_pretrained(model_id)
 
-def main():
-    # tokenizer = AutoTokenizer.from_pretrained("mistralai/Mistral-7B-v0.1")
-    # model = AutoModelForCausalLM.from_pretrained("mistralai/Mistral-7B-v0.1")
-    # cofnig = AutoConfig.from_pretrained("mistralai/Mistral-7B-v0.1")
-    # print(cofnig.pad_token_id)
-    # print(model)
-
-    device = 'cuda'
-    config = MistralConfig(max_position_embeddings=5000)
-    model = Model(config).to(device)
-
-    data = torch.LongTensor([[3, 4, 5], [7, 8, 9]]).to(device=device)
-    x, y = model(data)
-
-
-if __name__ == '__main__':
-    main()
+        state_dict = self.state_dict()
+        ref_state_dict = ref_model.state_dict()
+        for tup in self.named_parameters():
+            name = tup[0]
+            param = state_dict[name]
+            ref_name = name_mapping(name)
+            ref_param = ref_state_dict[ref_name]
+            param.data.copy_(ref_param)
