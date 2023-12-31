@@ -10,11 +10,11 @@ from model.mistral_config import MistralConfig
 class ModelTest(unittest.TestCase):
 
     def test_modeling(self):
-        torch.manual_seed(42)
-        device = 'cuda'
+        # torch.manual_seed(42)
+        device = 'cpu'
         ref_model_id = "mistralai/Mistral-7B-v0.1"
         ref_config = AutoConfig.from_pretrained(ref_model_id)
-        ref_config.num_hidden_layers = 8
+        # ref_config.num_hidden_layers = 16
         ref_config.sliding_window = 16
         ref_config.max_position_embeddings = 2048
         ref_config.torch_dtype = "float32"
@@ -25,9 +25,10 @@ class ModelTest(unittest.TestCase):
         ref_model.eval()
 
         config = MistralConfig(
-            num_hidden_layers=8,
+            # num_hidden_layers=16,
             sliding_window=16,
             max_position_embeddings=2048,
+            device=device,
         )
         model = Model(config)
         model.load_weights_from_hf(ref_model, None)
@@ -48,4 +49,4 @@ class ModelTest(unittest.TestCase):
             t2 = layer_output[i]
             assert t1.size() == t2.size()
             delta = torch.abs(torch.max(t2 - t1))
-            self.assertTrue(delta < 1e-3, f"fail at layer {i}, delta {delta}")
+            self.assertTrue(delta < 1e-4, f"fail at layer {i}, delta {delta}")
