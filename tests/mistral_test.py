@@ -10,6 +10,7 @@ from model.mistral_config import MistralConfig
 class ModelTest(unittest.TestCase):
 
     def test_modeling(self):
+        torch.manual_seed(42)
         device = 'cuda'
         ref_model_id = "mistralai/Mistral-7B-v0.1"
         ref_config = AutoConfig.from_pretrained(ref_model_id)
