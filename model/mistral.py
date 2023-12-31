@@ -131,7 +131,6 @@ class SelfAttention(nn.Module):
         cos, sin = self.cos[:q_len], self.sin[:q_len]
         all_q = apply_rotary(all_q, cos, sin).permute(1, 2, 0, 3)
         all_k = apply_rotary(all_k, cos, sin).permute(1, 2, 0, 3)
-        # all_v = apply_rotary(all_v, cos, sin).permute(1, 2, 0, 3)
         out = nn.functional.scaled_dot_product_attention(
             query=all_q, key=all_k, value=all_v, attn_mask=attn_mask)
         out = out.permute(0, 2, 1, 3).reshape(bsz, q_len, -1)
@@ -210,12 +209,13 @@ class Model(nn.Module):
             layers_output.append(hidden_states.detach())
         return self.final_norm(hidden_states), layers_output
 
-    def load_weights_from_hf(self, model_id):
+    def load_weights_from_hf(self, ref_model, model_id):
         """
         :return:
         """
         # model_id = 'mistralai/Mistral-7B-v0.1'
-        ref_model = AutoModelForCausalLM.from_pretrained(model_id)
+        if ref_model is None:
+            ref_model = AutoModelForCausalLM.from_pretrained(model_id)
 
         state_dict = self.state_dict()
         ref_state_dict = ref_model.state_dict()
