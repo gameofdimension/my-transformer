@@ -1,10 +1,9 @@
-import math
 import torch
 from torch import nn
 from transformers import AutoModelForCausalLM
 from transformers.activations import ACT2FN
 
-from model.common import RMSNorm
+from model.common import RMSNorm, precompute_cos_sin
 from model.mistral_config import MistralConfig
 
 
@@ -45,29 +44,6 @@ def precompute_attn_mask(sliding_window, q_len, device):
         return attn_mask
 
     return get_attn_mask
-
-
-def precompute_cos_sin(rope_theta, n: int, d: int, device):
-    assert d > 0 and d % 2 == 0
-
-    base = torch.tensor(rope_theta)
-    cos = torch.zeros(n, d, requires_grad=False)
-    sin = torch.zeros(n, d, requires_grad=False)
-    for i in range(n):
-        for j in range(d // 2):
-            theta = base ** (-2 * j / d)
-            cos[i, j] = torch.cos(i * theta)
-            cos[i, j + d // 2] = torch.cos(i * theta)
-            sin[i, j] = -torch.sin(i * theta)
-            sin[i, j + d // 2] = torch.sin(i * theta)
-
-    cos = cos.to(device)
-    sin = sin.to(device)
-
-    def get_cos_sin():
-        return cos, sin
-
-    return get_cos_sin
 
 
 def apply_rotary(vector: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor):

@@ -18,7 +18,9 @@ class RMSNorm(nn.Module):
         return hidden_states / norm * self.weight
 
 
-def weighted_sum(scores: List[torch.Tensor], values: List[torch.Tensor]) -> torch.Tensor:
+def weighted_sum(
+        scores: List[torch.Tensor], values: List[torch.Tensor]
+) -> torch.Tensor:
     v = torch.stack(values)
     scores = torch.Tensor(scores)
     probs = softmax(scores, dim=-1)
@@ -49,7 +51,8 @@ def slope_factory(num_heads: int):
 
 def attention_func(
         seq_length: int, num_attention_heads: int, hidden_size: int,
-        get_q: Callable, get_k: Callable, get_v: Callable, alibi_get_m: Callable = None):
+        get_q: Callable, get_k: Callable, get_v: Callable,
+        alibi_get_m: Callable = None):
     assert hidden_size % num_attention_heads == 0
     head_dim = hidden_size // num_attention_heads
     scale = head_dim ** 0.5
@@ -147,3 +150,26 @@ class Rotary:
             self._pad(m)
         matrix = self.matrix_lst[m]
         return matrix @ vec
+
+
+def precompute_cos_sin(rope_theta, n: int, d: int, device):
+    assert d > 0 and d % 2 == 0
+
+    base = torch.tensor(rope_theta)
+    cos = torch.zeros(n, d, requires_grad=False)
+    sin = torch.zeros(n, d, requires_grad=False)
+    for i in range(n):
+        for j in range(d // 2):
+            theta = base ** (-2 * j / d)
+            cos[i, j] = torch.cos(i * theta)
+            cos[i, j + d // 2] = torch.cos(i * theta)
+            sin[i, j] = -torch.sin(i * theta)
+            sin[i, j + d // 2] = torch.sin(i * theta)
+
+    cos = cos.to(device)
+    sin = sin.to(device)
+
+    def get_cos_sin():
+        return cos, sin
+
+    return get_cos_sin
