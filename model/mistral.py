@@ -82,32 +82,6 @@ def apply_rotary(vector: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor):
     return vector * cos + tmp * sin
 
 
-def scaled_dot_product_attention(
-        query, key, value, attn_mask=None,
-        is_causal=False, scale=None) -> torch.Tensor:
-    # Efficient implementation equivalent to the following:
-    L, S = query.size(-2), key.size(-2)
-    scale_factor = 1 / math.sqrt(query.size(-1)) if scale is None else scale
-    attn_bias = torch.zeros(L, S, dtype=query.dtype, device=query.device)
-    if is_causal:
-        assert attn_mask is None
-        temp_mask = torch.ones(L, S, dtype=torch.bool,
-                               device=query.device).tril(diagonal=0)
-        attn_bias.masked_fill_(temp_mask.logical_not(), float("-inf"))
-        attn_bias.to(query.dtype)
-
-    if attn_mask is not None:
-        if attn_mask.dtype == torch.bool:
-            attn_mask.masked_fill_(attn_mask.logical_not(), float("-inf"))
-        else:
-            attn_bias += attn_mask
-    attn_weight = query @ key.transpose(-2, -1) * scale_factor
-    attn_weight += attn_bias
-    attn_weight = torch.softmax(attn_weight, dim=-1)
-    # attn_weight = torch.dropout(attn_weight, dropout_p, train=True)
-    return attn_weight @ value
-
-
 class SelfAttention(nn.Module):
     def __init__(self, config: MistralConfig, layer_idx: int,
                  get_cos_sin, get_attn_mask):
@@ -158,8 +132,7 @@ class SelfAttention(nn.Module):
         all_q = apply_rotary(all_q, cos, sin).permute(1, 2, 0, 3)
         all_k = apply_rotary(all_k, cos, sin).permute(1, 2, 0, 3)
 
-        # nn.functional.scaled_dot_product_attention will have bigger error
-        out = scaled_dot_product_attention(
+        out = nn.functional.scaled_dot_product_attention(
             query=all_q, key=all_k, value=all_v, attn_mask=attn_mask)
 
         out = out.permute(0, 2, 1, 3).reshape(bsz, q_len, -1)
