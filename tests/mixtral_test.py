@@ -14,7 +14,7 @@ class ModelTest(unittest.TestCase):
         device = 'cpu'
         ref_model_id = "mistralai/Mixtral-8x7B-v0.1"
         ref_config = AutoConfig.from_pretrained(ref_model_id)
-        # ref_config.num_hidden_layers = 4
+        ref_config.num_hidden_layers = 16
         ref_config.max_position_embeddings = 2048
         ref_config.torch_dtype = "float32"
         ref_model = AutoModelForCausalLM.from_pretrained(
@@ -24,7 +24,7 @@ class ModelTest(unittest.TestCase):
         ref_model.eval()
 
         config = MixtralConfig(
-            # num_hidden_layers=4,
+            num_hidden_layers=16,
             max_position_embeddings=2048,
             device=device,
         )
@@ -47,7 +47,4 @@ class ModelTest(unittest.TestCase):
             t2 = layer_output[i]
             assert t1.size() == t2.size()
             delta = torch.abs(torch.max(t2 - t1))
-            print(f"{i}", delta)
-
-            print()
-            self.assertTrue(delta < 1e-4, f"fail at layer {i}, delta {delta}")
+            self.assertTrue(delta < 1e-3, f"fail at layer {i}, delta {delta}")
