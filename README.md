@@ -22,8 +22,8 @@
 |[chatglm2](model/chatglm2.py)|RoPE|RMSNorm|swiglu|单向，分组注意力|
 |[mistral](model/mistral.py)|RoPE|RMSNorm|silu|单向，分组注意力，滑动窗口注意力|
 |[mixtral](model/mixtral.py)|RoPE|RMSNorm|silu|单向，分组注意力|
+|[phi2](model/phi2.py)|RoPE|LayerNorm|gelu|单向注意力|
 
-https://github.com/gameofdimension/my-transformer/blob/master/model/mistral.py
 
 - gpt2
   1. 标准 transformer 的 decoder 部分，只是去掉了来自 encoder 的 cross attention 输入。或者从另一个角度，它跟作为 encoder 的 bert 架构一样，但是 attention mask 是下三角的，以达到单向注意力的目的
@@ -53,3 +53,7 @@ https://github.com/gameofdimension/my-transformer/blob/master/model/mistral.py
   1. 跟 mistral 一样的分组注意力
   2. 取消了滑动窗口，huggingface 上的早期版本的 `config.json` 写着有 4096 的滑动窗口。后面官方证明是乌龙，Reddit 看到有人被坑到，发帖吐槽了。该模型支持最长 32k 上下文，没有滑动窗口情况下注意力部分的计算量很大，如何高效训练的值得探究
   3. MoE 取代 decoder transformer 中的 FFN，各个 expert 本身是一个 FFN，其实就是用一组 FFN 取代原来的一个 FFN。训练上可能挺麻烦的，要保证各个 expert 被差不多同样程度的训练到，同时还要做到高效。推理从概念上极其简单：仅根据当前 token 的 hidden state 从 8 个experts 中选择 top2，hidden state 再经过这两个 FFN 计算，加权求和即是 MoE 的最终结果
+- phi2
+  1. 微软 phi 系列的最新版本
+  2. RoPE 旋转的维数是 32，而 head 的维数 80。这种设计还是相对少见，按理说 RoPE 计算开销也不大，为什么要这样省搞不懂。chatglm2 也是只旋转部分维度，但是那里我宁愿相信是因为 chatglm 的历史负担
+  3. FFN 和 Attention 并行而不是串行，扫了一眼论文也不是它的首创，貌似也是出于高效利用某类硬件的目的
