@@ -3,8 +3,7 @@ from torch import nn
 from transformers import AutoModelForCausalLM
 from transformers.activations import ACT2FN
 
-from model.common import RMSNorm, precompute_cos_sin
-from model.mistral import apply_rotary
+from model.common import RMSNorm, apply_rotary, precompute_cos_sin
 from model.mixtral_config import MixtralConfig
 
 

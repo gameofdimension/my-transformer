@@ -3,7 +3,7 @@ from torch import nn
 from transformers import AutoModelForCausalLM
 from transformers.activations import ACT2FN
 
-from model.common import RMSNorm, precompute_cos_sin
+from model.common import RMSNorm, apply_rotary, precompute_cos_sin
 from model.mistral_config import MistralConfig
 
 
@@ -44,18 +44,6 @@ def precompute_attn_mask(sliding_window, q_len, device):
         return attn_mask
 
     return get_attn_mask
-
-
-def apply_rotary(vector: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor):
-    assert vector.dim() == 4
-    assert cos.dim() == sin.dim() == 2
-    assert cos.size(-1) == sin.size(-1) == vector.size(-1)
-    assert cos.size(0) == sin.size(0) == vector.size(0)
-    sl, bs, nh, d = vector.size()
-    cos = cos.view(sl, 1, 1, -1)
-    sin = sin.view(sl, 1, 1, -1)
-    tmp = torch.cat([vector[..., d // 2:], vector[..., :d // 2]], dim=-1)
-    return vector * cos + tmp * sin
 
 
 class SelfAttention(nn.Module):

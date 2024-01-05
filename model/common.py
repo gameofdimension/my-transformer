@@ -173,3 +173,15 @@ def precompute_cos_sin(rope_theta, n: int, d: int, device):
         return cos, sin
 
     return get_cos_sin
+
+
+def apply_rotary(vector: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor):
+    assert vector.dim() == 4
+    assert cos.dim() == sin.dim() == 2
+    assert cos.size(-1) == sin.size(-1) == vector.size(-1)
+    assert cos.size(0) == sin.size(0) == vector.size(0)
+    sl, bs, nh, d = vector.size()
+    cos = cos.view(sl, 1, 1, -1)
+    sin = sin.view(sl, 1, 1, -1)
+    tmp = torch.cat([vector[..., d // 2:], vector[..., :d // 2]], dim=-1)
+    return vector * cos + tmp * sin
