@@ -1,9 +1,10 @@
 import torch
 from torch import nn
-from model.common import apply_rotary, precompute_cos_sin
-from model.phi2_config import Phi2Config
-from transformers.activations import ACT2FN
 from transformers import AutoModelForCausalLM
+from transformers.activations import ACT2FN
+
+from model.common import precompute_cos_sin
+from model.phi2_config import Phi2Config
 
 
 class MLP(nn.Module):
@@ -20,11 +21,26 @@ class MLP(nn.Module):
         return out
 
 
+def apply_partial_rotary(vector: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor):
+    assert vector.dim() == 4
+    assert cos.dim() == sin.dim() == 2
+    assert cos.size(-1) == sin.size(-1) <= vector.size(-1)
+    rotary_dim = cos.size(-1)
+    assert cos.size(0) == sin.size(0) == vector.size(0)
+    sl, bs, nh, d = vector.size()
+    cos = cos.view(sl, 1, 1, -1)
+    sin = sin.view(sl, 1, 1, -1)
+    tmp = torch.cat(
+        [vector[..., rotary_dim // 2:rotary_dim],
+         vector[..., :rotary_dim // 2]], dim=-1)
+    rotten = vector[..., :rotary_dim] * cos + tmp * sin
+    return torch.cat([rotten, vector[..., rotary_dim:]], dim=-1)
+
+
 class SelfAttention(nn.Module):
 
-    def __init__(self, config: Phi2Config, block_idx: int, get_cos_sin):
+    def __init__(self, config: Phi2Config, get_cos_sin):
         super().__init__()
-        self.block_idx = block_idx
 
         self.head_dim = config.n_embd // config.n_head
         self.n_head = self.n_head_kv = config.n_head
@@ -45,11 +61,11 @@ class SelfAttention(nn.Module):
         k = k.reshape(bsz, q_len, self.n_head, -1).permute(1, 0, 2, 3)
         v = v.reshape(bsz, q_len, self.n_head, -1).permute(0, 2, 1, 3)
         cos, sin = self.cos[:q_len], self.sin[:q_len]
-        q = apply_rotary(q, cos, sin).permute(1, 2, 0, 3)
-        k = apply_rotary(k, cos, sin).permute(1, 2, 0, 3)
+        q = apply_partial_rotary(q, cos, sin).permute(1, 2, 0, 3)
+        k = apply_partial_rotary(k, cos, sin).permute(1, 2, 0, 3)
 
         out = nn.functional.scaled_dot_product_attention(
-            query=q, key=k, value=v, dropout_p=self.attn_pdrop)
+            query=q, key=k, value=v, dropout_p=self.attn_pdrop, is_causal=True)
         out = out.permute(0, 2, 1, 3).reshape(bsz, q_len, -1)
         out = self.out_proj(out)
         return out
@@ -57,15 +73,12 @@ class SelfAttention(nn.Module):
 
 class Block(nn.Module):
 
-    def __init__(self, config: Phi2Config, block_idx: int, get_cos_sin):
+    def __init__(self, config: Phi2Config, get_cos_sin):
         super().__init__()
         self.ln = nn.LayerNorm(config.n_embd, eps=config.layer_norm_epsilon)
         self.resid_dropout = nn.Dropout(config.resid_pdrop)
-        self.block_idx = block_idx
 
-        self.mixer = SelfAttention(config,
-                                   block_idx=block_idx,
-                                   get_cos_sin=get_cos_sin)
+        self.mixer = SelfAttention(config, get_cos_sin=get_cos_sin)
         self.mlp = MLP(config)
 
     def forward(self, hidden_states: torch.Tensor):
@@ -82,6 +95,8 @@ def name_mapping(param: str):
         "ln.weight": "lm_head.ln.weight",
         "ln.bias": "lm_head.ln.bias",
         "wte.weight": "transformer.embd.wte.weight",
+        "linear.weight": "lm_head.linear.weight",
+        "linear.bias": "lm_head.linear.bias",
     }
     if param in out:
         return out[param]
@@ -93,14 +108,14 @@ class Model(nn.Module):
     def __init__(self, config: Phi2Config):
         super().__init__()
         self.ln = nn.LayerNorm(config.n_embd, eps=config.layer_norm_epsilon)
+        self.linear = nn.Linear(config.n_embd, config.vocab_size)
 
         rope_theta = 10000.0
         get_cos_sin = precompute_cos_sin(rope_theta, config.n_positions,
-                                         config.n_embd // config.n_head,
-                                         config.device)
+                                         config.rotary_dim, config.device)
         self.h = nn.ModuleList([
-            Block(config, block_idx=i, get_cos_sin=get_cos_sin)
-            for i in range(config.n_layer)
+            Block(config, get_cos_sin=get_cos_sin)
+            for _ in range(config.n_layer)
         ])
 
         self.wte = nn.Embedding(config.vocab_size, config.n_embd)
@@ -112,9 +127,9 @@ class Model(nn.Module):
 
         layers_output = [hidden_states.detach()]
         for layer in self.h:
-            hidden_states = layer(hidden_states, )
+            hidden_states = layer(hidden_states)
             layers_output.append(hidden_states.detach())
-        return self.ln(hidden_states), hidden_states
+        return self.linear(self.ln(hidden_states)), hidden_states
 
     def load_weights_from_hf(self, ref_model, model_id):
         """
