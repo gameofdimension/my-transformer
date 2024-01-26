@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from transformers import AutoModelForCausalLM
 from transformers.activations import ACT2FN
 
 from model.common import RMSNorm, apply_rotary, precompute_cos_sin
@@ -173,6 +174,19 @@ class Block(nn.Module):
         return hidden_states
 
 
+def name_mapping(param: str):
+    out = {
+        "embed_tokens.weight": "model.embed_tokens.weight",
+        "norm.weight": "model.norm.weight",
+    }
+    if param in out:
+        return out[param]
+    name = "model."+param
+    if name.endswith('gate.linear.weight'):
+        return name.replace('gate.linear.weight', 'gate.weight')
+    return name
+
+
 class Model(nn.Module):
     def __init__(self, config: DeepseekConfig):
         super().__init__()
@@ -198,14 +212,20 @@ class Model(nn.Module):
             layers_output.append(hidden_states.detach())
         return self.norm(hidden_states), layers_output
 
+    def load_weights_from_hf(self, ref_model, model_id):
+        """
+        :return:
+        """
+        # model_id = 'deepseek-ai/deepseek-moe-16b-chat'
+        if ref_model is None:
+            ref_model = AutoModelForCausalLM.from_pretrained(
+                model_id, trust_remote_code=True)
 
-if __name__ == "__main__":
-    # from transformers import AutoModelForCausalLM
-    # model = AutoModelForCausalLM.from_pretrained(
-    #     "deepseek-ai/deepseek-moe-16b-chat", trust_remote_code=True)
-    # print(model)
-    config = DeepseekConfig(device='cpu')
-    model = Model(config)
-    data = torch.randint(0, config.vocab_size, (3, 4))
-
-    model(data)
+        state_dict = self.state_dict()
+        ref_state_dict = ref_model.state_dict()
+        for tup in self.named_parameters():
+            name = tup[0]
+            param = state_dict[name]
+            ref_name = name_mapping(name)
+            ref_param = ref_state_dict[ref_name]
+            param.data.copy_(ref_param)

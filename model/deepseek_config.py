@@ -16,9 +16,10 @@ class DeepseekConfig:
     num_hidden_layers: int = 28
     num_key_value_heads: int = 16
     rms_norm_eps: float = 1e-06
-    device: str = 'cuda'
     attention_bias: bool = False
     scoring_func: str = 'softmax'
     rope_theta: int = 10000
     moe_layer_freq: int = 1
     first_k_dense_replace: int = 1
+    device: str = 'cuda'
+    torch_dtype: str = 'bfloat16'
