@@ -13,6 +13,7 @@ class DeepseekConfig:
     n_shared_experts: int = 2
     num_attention_heads: int = 16
     num_experts_per_tok: int = 6
+    norm_topk_prob: bool = False
     num_hidden_layers: int = 28
     num_key_value_heads: int = 16
     rms_norm_eps: float = 1e-06

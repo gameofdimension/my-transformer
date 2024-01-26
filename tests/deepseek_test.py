@@ -46,5 +46,4 @@ class ModelTest(unittest.TestCase):
             t2 = layer_output[i]
             assert t1.size() == t2.size()
             delta = torch.abs(torch.max(t2 - t1))
-            print(delta)
             self.assertTrue(delta < 1e-3, f"fail at layer {i}, delta {delta}")

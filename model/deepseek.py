@@ -88,6 +88,7 @@ class MLP(nn.Module):
 class Gate(nn.Module):
     def __init__(self, config: DeepseekConfig):
         super().__init__()
+        self.config = config
         self.linear = nn.Linear(
             config.hidden_size, config.n_routed_experts, bias=False)
         assert config.scoring_func == 'softmax'
@@ -99,12 +100,15 @@ class Gate(nn.Module):
 
         routing_weights, selected_experts = torch.topk(
             probs, self.top_k, dim=-1)
-        routing_weights /= routing_weights.sum(dim=-1, keepdim=True)
+
+        if self.config.norm_topk_prob:
+            routing_weights /= routing_weights.sum(
+                dim=-1, keepdim=True) + 1e-20
 
         return routing_weights, selected_experts
 
 
-class Moe(nn.Module):
+class MoE(nn.Module):
     def __init__(self, config: DeepseekConfig):
         super().__init__()
         self.config = config
@@ -155,7 +159,7 @@ class Block(nn.Module):
         assert config.n_routed_experts is not None
         if layer_idx >= config.first_k_dense_replace and \
                 layer_idx % config.moe_layer_freq == 0:
-            self.mlp = Moe(config)
+            self.mlp = MoE(config)
         else:
             self.mlp = MLP(
                 hidden_act=config.hidden_act, hidden_size=config.hidden_size,
