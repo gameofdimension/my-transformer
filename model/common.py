@@ -18,6 +18,18 @@ class RMSNorm(nn.Module):
         return hidden_states / norm * self.weight
 
 
+class GemmaRMSNorm(nn.Module):
+    def __init__(self, hidden_size: int, eps: float):
+        super().__init__()
+        self.eps = eps
+        self.weight = nn.Parameter(torch.zeros(hidden_size))
+
+    def forward(self, hidden_states: torch.Tensor):
+        val = hidden_states * hidden_states
+        norm = torch.sqrt(torch.mean(val, dim=-1, keepdim=True) + self.eps)
+        return hidden_states / norm * (1+self.weight)
+
+
 def weighted_sum(
         scores: List[torch.Tensor], values: List[torch.Tensor]
 ) -> torch.Tensor:

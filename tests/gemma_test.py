@@ -9,7 +9,8 @@ from model.gemma_config import GemmaConfig
 
 class ModelTest(unittest.TestCase):
 
-    def test_2b_modeling(self, device):
+    def test_2b_modeling(self):
+        device = 'cpu'
         # config for 7b model
         # config = GemmaConfig(
         #     device=device,
@@ -26,11 +27,10 @@ class ModelTest(unittest.TestCase):
             num_key_value_heads=1,
         )
         ref_model_id = "google/gemma-2b"
-        self.check_modeling(ref_model_id, config)
+        self.check_modeling(device, ref_model_id, config)
 
-    def check_modeling(self, ref_model_id, config: GemmaConfig):
+    def check_modeling(self, device, ref_model_id, config: GemmaConfig):
         # torch.manual_seed(42)
-        device = 'cpu'
         ref_config = AutoConfig.from_pretrained(
             ref_model_id, trust_remote_code=True)
         ref_config.torch_dtype = "float32"

@@ -1,9 +1,10 @@
 import torch
 from torch import nn
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM
 from transformers.activations import ACT2FN
 
-from model.common import RMSNorm, apply_rotary, precompute_cos_sin
+from model.common import GemmaRMSNorm
+from model.common import apply_rotary, precompute_cos_sin
 from model.gemma_config import GemmaConfig
 
 
@@ -93,9 +94,9 @@ class Block(nn.Module):
             get_cos_sin=get_cos_sin)
 
         self.mlp = MLP(config)
-        self.input_layernorm = RMSNorm(
+        self.input_layernorm = GemmaRMSNorm(
             config.hidden_size, eps=config.rms_norm_eps)
-        self.post_attention_layernorm = RMSNorm(
+        self.post_attention_layernorm = GemmaRMSNorm(
             config.hidden_size, eps=config.rms_norm_eps)
 
     def forward(self, hidden_states: torch.Tensor):
@@ -133,7 +134,7 @@ class Model(nn.Module):
             [Block(config, layer_idx, get_cos_sin)
              for layer_idx in range(config.num_hidden_layers)]
         )
-        self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        self.norm = GemmaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.config = config
 
     def forward(self, input_ids: torch.LongTensor):
