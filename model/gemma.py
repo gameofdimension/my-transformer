@@ -112,6 +112,10 @@ class Block(nn.Module):
         return hidden_states
 
 
+def name_mapping(param: str):
+    return "model."+param
+
+
 class Model(nn.Module):
     def __init__(self, config: GemmaConfig):
         super().__init__()
@@ -141,23 +145,19 @@ class Model(nn.Module):
             layers_output.append(hidden_states.detach())
         return self.norm(hidden_states), layers_output
 
+    def load_weights_from_hf(self, ref_model, model_id):
+        """
+        :return:
+        """
+        # model_id = 'google/gemma-7b'
+        if ref_model is None:
+            ref_model = AutoModelForCausalLM.from_pretrained(model_id)
 
-def main():
-    # tokenizer = AutoTokenizer.from_pretrained("google/gemma-7b")
-    # model = AutoModelForCausalLM.from_pretrained("google/gemma-7b")
-    # pass
-
-    config = GemmaConfig(device='cuda')
-    model = Model(config).to(config.device)
-
-    input_ids = torch.randint(
-        high=config.vocab_size, size=(5, 64),
-        device=config.device, requires_grad=False)
-
-    with torch.no_grad():
-        out, layer_output = model(input_ids)
-        print(out.size(), out.device)
-
-
-if __name__ == "__main__":
-    main()
+        state_dict = self.state_dict()
+        ref_state_dict = ref_model.state_dict()
+        for tup in self.named_parameters():
+            name = tup[0]
+            param = state_dict[name]
+            ref_name = name_mapping(name)
+            ref_param = ref_state_dict[ref_name]
+            param.data.copy_(ref_param)
