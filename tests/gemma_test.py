@@ -12,21 +12,23 @@ class ModelTest(unittest.TestCase):
     def test_2b_modeling(self):
         device = 'cpu'
         # config for 7b model
-        # config = GemmaConfig(
-        #     device=device,
-        # )
-        # ref_model_id = "google/gemma-7b"
-
-        # config for 2b model
         config = GemmaConfig(
             device=device,
-            hidden_size=2048,
-            intermediate_size=16384,
-            num_attention_heads=8,
-            num_hidden_layers=18,
-            num_key_value_heads=1,
+            max_position_embeddings=1000,
         )
-        ref_model_id = "google/gemma-2b"
+        ref_model_id = "google/gemma-7b"
+
+        # config for 2b model
+        # config = GemmaConfig(
+        #     device=device,
+        #     hidden_size=2048,
+        #     intermediate_size=16384,
+        #     num_attention_heads=8,
+        #     num_hidden_layers=18,
+        #     num_key_value_heads=1,
+        #     max_position_embeddings=1000,
+        # )
+        # ref_model_id = "google/gemma-2b"
         self.check_modeling(device, ref_model_id, config)
 
     def check_modeling(self, device, ref_model_id, config: GemmaConfig):
@@ -61,4 +63,4 @@ class ModelTest(unittest.TestCase):
             assert t1.size() == t2.size()
             delta = torch.abs(torch.max(t2 - t1))
             print(delta)
-            # self.assertTrue(delta < 1e-4, f"fail at layer {i}, delta {delta}")
+            self.assertTrue(delta < 1e-4, f"fail at layer {i}, delta {delta}")

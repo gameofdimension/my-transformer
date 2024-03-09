@@ -75,7 +75,7 @@ class SelfAttention(nn.Module):
         all_k = apply_rotary(all_k, cos, sin).permute(1, 2, 0, 3)
 
         out = nn.functional.scaled_dot_product_attention(
-            query=all_q, key=all_k, value=all_v)
+            query=all_q, key=all_k, value=all_v, is_causal=True)
 
         out = out.permute(0, 2, 1, 3).reshape(bsz, q_len, -1)
         out = self.o_proj(out)
