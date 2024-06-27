@@ -162,15 +162,3 @@ class Model(nn.Module):
             ref_name = name_mapping(name)
             ref_param = ref_state_dict[ref_name]
             param.data.copy_(ref_param)
-
-
-if __name__ == '__main__':
-    # from transformers import AutoTokenizer, AutoModelForCausalLM
-
-    # tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2-1.5B")
-    # model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2-1.5B")
-    config = Qwen2Config(device='cpu')
-    model = Model(config)
-
-    input_ids = torch.randint(0, 151936, (4, 20))
-    model(input_ids)

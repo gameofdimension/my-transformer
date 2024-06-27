@@ -1,7 +1,7 @@
 import unittest
 
 import torch
-from transformers import AutoModelForCausalLM, AutoConfig
+from transformers import AutoConfig, AutoModelForCausalLM
 
 from model.qwen2 import Model
 from model.qwen2_config import Qwen2Config
@@ -12,9 +12,10 @@ class ModelTest(unittest.TestCase):
     def test_modeling(self):
         device = 'cpu'
         ref_model_id = "Qwen/Qwen2-1.5B"
+        torch_dtype = 'float32'
         ref_config = AutoConfig.from_pretrained(
             ref_model_id, trust_remote_code=True)
-        ref_config.torch_dtype = 'float32'
+        ref_config.torch_dtype = torch_dtype
         ref_model = AutoModelForCausalLM.from_pretrained(
             ref_model_id,
             config=ref_config,
@@ -24,7 +25,7 @@ class ModelTest(unittest.TestCase):
 
         config = Qwen2Config(
             device=device,
-            torch_dtype='float32',
+            torch_dtype=torch_dtype,
         )
         model = Model(config)
         model.load_weights_from_hf(ref_model, None)
@@ -44,5 +45,4 @@ class ModelTest(unittest.TestCase):
             a = out1.hidden_states[i]
             b = layer_output[i]
             delta = torch.abs(a - b).max()
-            print(delta)
             self.assertTrue(delta < 1e-2, f"fail at layer {i}, delta {delta}")
