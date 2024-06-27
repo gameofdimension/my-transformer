@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from transformers import AutoModelForCausalLM
 
 from model.common import RMSNorm, apply_rotary, precompute_cos_sin
 from model.qwen_config import QwenConfig
@@ -61,7 +62,7 @@ class SelfAttention(nn.Module):
         all_k = apply_rotary(all_k, cos, sin).permute(1, 2, 0, 3)
 
         out = nn.functional.scaled_dot_product_attention(
-            query=all_q, key=all_k, value=all_v)
+            query=all_q, key=all_k, value=all_v, is_causal=True)
 
         out = out.permute(0, 2, 1, 3).reshape(bsz, q_len, -1)
         out = self.c_proj(out)
@@ -100,6 +101,10 @@ class Block(nn.Module):
         return hidden_states
 
 
+def name_mapping(param: str):
+    return "transformer."+param
+
+
 class Model(nn.Module):
     def __init__(self, config: QwenConfig):
         super().__init__()
@@ -124,21 +129,27 @@ class Model(nn.Module):
 
     def forward(self, input_ids: torch.LongTensor):
         hidden_states = self.wte(input_ids)
-        layers_output = [hidden_states.detach()]
+        layers_output = []
         for layer in self.h:
-            hidden_states = layer(hidden_states)
             layers_output.append(hidden_states.detach())
-        return self.ln_f(hidden_states), layers_output
+            hidden_states = layer(hidden_states)
+        hidden_states = self.ln_f(hidden_states)
+        layers_output.append(hidden_states.detach())
+        return hidden_states, layers_output
 
     def load_weights_from_hf(self, ref_model, model_id):
-        pass
+        """
+        :return:
+        """
+        # model_id = "Qwen/Qwen-1_8B"
+        if ref_model is None:
+            ref_model = AutoModelForCausalLM.from_pretrained(model_id)
 
-
-if __name__ == '__main__':
-    config = QwenConfig(device='cpu')
-    model = Model(config)
-    # print(model)
-    input_ids = torch.randint(0, config.vocab_size, (2, 16))
-    output, layers_output = model(input_ids)
-    print(output.size())
-    # print(len(layers_output), layers_output[0].size())
+        state_dict = self.state_dict()
+        ref_state_dict = ref_model.state_dict()
+        for tup in self.named_parameters():
+            name = tup[0]
+            param = state_dict[name]
+            ref_name = name_mapping(name)
+            ref_param = ref_state_dict[ref_name]
+            param.data.copy_(ref_param)
